@@ -21,9 +21,9 @@ public:
     Tensor2D(size_t rows, size_t cols);
     Tensor2D(size_t rows, size_t cols, float init_value);
 
-    size_t rows() const;
-    size_t cols() const;
-    size_t size() const;
+    [[nodiscard]] size_t rows() const;
+    [[nodiscard]] size_t cols() const;
+    [[nodiscard]] size_t size() const;
 
     float& at(size_t r, size_t c);
     const float& at(size_t r, size_t c) const;

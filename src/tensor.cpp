@@ -18,17 +18,17 @@ size_t Tensor2D::index(size_t r, size_t c) const
     return r * cols_ + c;
 }
 
-size_t Tensor2D::rows() const
+[[nodiscard]] size_t Tensor2D::rows() const
 {
     return rows_;
 }
 
-size_t Tensor2D::cols() const
+[[nodiscard]] size_t Tensor2D::cols() const
 {
     return cols_;
 }
 
-size_t Tensor2D::size() const
+[[nodiscard]] size_t Tensor2D::size() const
 {
     return data_.size();
 }
