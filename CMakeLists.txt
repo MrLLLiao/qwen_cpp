@@ -22,6 +22,10 @@ target_include_directories(tensor-test PRIVATE tests)
 target_link_libraries(tensor-test PRIVATE ops_core)
 
 add_executable(matmul-test tests/matmul_test.cpp)
-target_include_directories(matmul-test PRIVATE test)
+target_include_directories(matmul-test PRIVATE tests)
 target_link_libraries(matmul-test PRIVATE ops_core)
+
+add_executable(softmax-test tests/softmax_test.cpp)
+target_include_directories(softmax-test PRIVATE tests)
+target_link_libraries(softmax-test PRIVATE ops_core)
 
