@@ -10,8 +10,12 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 add_library(ops_core
         src/tensor.cpp
         src/ops/matmul.cpp
+        src/ops/softmax.cpp
 )
-target_include_directories(ops_core PUBLIC include)
+target_include_directories(ops_core PUBLIC
+        include
+        include/ops
+        include/model)
 
 add_executable(tensor-test tests/tensor_test.cpp)
 target_include_directories(tensor-test PRIVATE tests)

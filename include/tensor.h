@@ -15,7 +15,7 @@ private:
     size_t cols_{0};
     std::vector<float> data_;
 private:
-    size_t index(size_t r, size_t c) const;
+    [[nodiscard]] size_t index(size_t r, size_t c) const;
 public:
     Tensor2D();
     Tensor2D(size_t rows, size_t cols);
@@ -24,6 +24,7 @@ public:
     [[nodiscard]] size_t rows() const;
     [[nodiscard]] size_t cols() const;
     [[nodiscard]] size_t size() const;
+    [[nodiscard]] double max_value() const;
 
     float& at(size_t r, size_t c);
     const float& at(size_t r, size_t c) const;

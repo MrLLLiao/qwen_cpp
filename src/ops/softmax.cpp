@@ -1,58 +1,142 @@
-// File: softmax.c
+#include "ops/softmax.h"
 
-#include <stdio.h>
-#include <ctype.h>
+#include <algorithm>
+#include <cmath>
+#include <numeric>
+#include <stdexcept>
+#include <vector>
 
-#define MAX_N 200000
-#define bool _Bool
-#define true 1
-#define false 0
+Softmax::Softmax(SoftmaxConfig config) : config_(config) {}
 
-typedef long long ll;
-
-int read_int()
+static bool is_valid_Tensor2D(const Tensor2D& input)
 {
-    int x = 0, f = 1;
-    int ch = getchar();
-    while (ch != EOF && !isdigit((unsigned char)ch))
+    return input.rows() > 0 && input.cols() > 0;
+}
+
+static Tensor2D forward_row(const Tensor2D& input, const SoftmaxConfig& config)
+{
+    if (!is_valid_Tensor2D(input))
     {
-        if (ch == '-')
+        return {0, 0, 0.0f};
+    }
+
+    Tensor2D output(input.rows(), input.cols());
+    std::vector<double> expValues(input.size(), 0.0);
+
+    const float temperature = config.temperature;
+    const float epsilon = config.epsilon;
+
+    for (size_t row = 0; row < input.rows(); ++ row)
+    {
+        double rowMax = input.at(row, 0);
+        for (size_t col = 1; col < input.cols(); ++col)
         {
-            f = -1;
+            rowMax = std::max(rowMax, static_cast<double>(input.at(row, col)));
         }
-        ch = getchar();
+
+        double sumExp = 0.0;
+        for (size_t col = 0; col < input.cols(); ++col)
+        {
+            const float x = input.at(row, col);
+            const double expValue = std::exp((x - rowMax) / temperature);
+            expValues[row * input.cols() + col] = expValue;
+            sumExp += expValue;
+        }
+
+        sumExp += epsilon;
+
+        for (size_t col = 0; col < input.cols(); ++col)
+        {
+            output.at(row, col) = static_cast<float>(expValues[row * input.cols() + col] / sumExp);
+        }
     }
-    while (ch != EOF && isdigit((unsigned char)ch))
-    {
-        x = (x << 1) + (x << 3) + (ch ^ 48);
-        ch = getchar();
-    }
-    return x * f;
+
+    return output;
 }
 
-void writeln_int(int x)
+static Tensor2D forward_col(const Tensor2D& input, const SoftmaxConfig& config)
 {
-    if (x < 0)
+    if (!is_valid_Tensor2D(input))
     {
-        putchar('-');
-        x = -x;
+        return {0, 0, 0.0f};
     }
-    char st[60];
-    int top = 0;
-    do
+
+    Tensor2D output(input.rows(), input.cols());
+    std::vector<double> expValues(input.size(), 0.0);
+
+    const float temperature = config.temperature;
+    const float epsilon = config.epsilon;
+
+    for (size_t col = 0; col < input.cols(); ++col)
     {
-        st[top++] = (char)(x % 10 + '0');
-        x /= 10;
+        double colMax = input.at(0, col);
+        for (size_t row = 1; row < input.rows(); ++row)
+        {
+            colMax = std::max(colMax, static_cast<double>(input.at(row, col)));
+        }
+
+        double sumExp = 0.0;
+        for (size_t row = 0; row < input.rows(); ++row)
+        {
+            const float x = input.at(row, col);
+            const double expValue = std::exp((x - colMax) / temperature);
+            expValues[row * input.cols() + col] = expValue;
+            sumExp += expValue;
+        }
+
+        sumExp += epsilon;
+
+        for (size_t row = 0; row < input.rows(); ++row)
+        {
+            output.at(row, col) = static_cast<float>(expValues[row * input.cols() + col] / sumExp);
+        }
     }
-    while (x > 0);
-    while (top > 0)
-    {
-        putchar(st[--top]);
-    }
-    putchar('\n');
+
+    return output;
 }
 
-int main()
+Tensor2D Softmax::forward(const Tensor2D& input) const
 {
-    return 0;
+    if (!is_valid_Tensor2D(input))
+    {
+        return Tensor2D{0, 0, 0.0f};
+    }
+
+    const SoftmaxConfig& config = this->config();
+
+    if (config.axis == SoftmaxAxis::Row)
+    {
+        return forward_row(input, config);
+    }
+
+    return forward_col(input, config);
+}
+
+void Softmax::forward_inplace(Tensor2D& input) const
+{
+    Tensor2D temp = forward(input);
+    input = temp;
+}
+
+const SoftmaxConfig& Softmax::config() const
+{
+    if (config_.temperature <= 0.0f)
+    {
+        throw std::invalid_argument("Softmax temperature must be greater than 0");
+    }
+
+    if (config_.epsilon < 0.0f)
+    {
+        throw std::invalid_argument("Softmax epsilon must be non-negative");
+    }
+
+    return config_;
+}
+
+Tensor2D softmax(const Tensor2D& input,
+                 SoftmaxAxis axis,
+                 float epsilon,
+                 float temperature)
+{
+    return Softmax(SoftmaxConfig{axis, epsilon, temperature}).forward(input);
 }

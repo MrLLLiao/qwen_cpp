@@ -1,4 +1,5 @@
 #include "tensor.h"
+#include <algorithm>
 
 Tensor2D::Tensor2D() = default;
 
@@ -31,6 +32,11 @@ size_t Tensor2D::index(size_t r, size_t c) const
 [[nodiscard]] size_t Tensor2D::size() const
 {
     return data_.size();
+}
+
+double Tensor2D::max_value() const
+{
+    return *std::ranges::max_element(data_);
 }
 
 float& Tensor2D::at(size_t r, size_t c)
