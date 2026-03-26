@@ -1,58 +1,119 @@
-// File: attention.c
+#include "ops/attention.h"
 
-#include <stdio.h>
-#include <ctype.h>
+#include "ops/matmul.h"
+#include "ops/softmax.h"
 
-#define MAX_N 200000
-#define bool _Bool
-#define true 1
-#define false 0
+#include <cmath>
+#include <limits>
+#include <stdexcept>
 
-typedef long long ll;
+Attention::Attention(AttentionConfig config) : config_(config) {}
 
-int read_int()
+Tensor2D Attention::forward(const Tensor2D& query,
+                            const Tensor2D& key,
+                            const Tensor2D& value,
+                            const Tensor2D* additive_mask) const
 {
-    int x = 0, f = 1;
-    int ch = getchar();
-    while (ch != EOF && !isdigit((unsigned char)ch))
+    if (query.cols() != key.cols())
     {
-        if (ch == '-')
+        throw std::invalid_argument("Attention dimension mismatch: query.cols() must equal key.cols()");
+    }
+
+    if (key.rows() != value.rows())
+    {
+        throw std::invalid_argument("Attention dimension mismatch: key.rows() must equal value.rows()");
+    }
+
+    if (additive_mask != nullptr)
+    {
+        if (additive_mask->rows() != query.rows() || additive_mask->cols() != key.rows())
         {
-            f = -1;
+            throw std::invalid_argument("Attention mask shape mismatch: mask must be [query.rows(), key.rows()]");
         }
-        ch = getchar();
     }
-    while (ch != EOF && isdigit((unsigned char)ch))
+
+    if (config_.softmax_epsilon < 0.0f)
     {
-        x = (x << 1) + (x << 3) + (ch ^ 48);
-        ch = getchar();
+        throw std::invalid_argument("Attention softmax_epsilon must be non-negative");
     }
-    return x * f;
+
+    if (config_.manual_scale == 0.0f)
+    {
+        throw std::invalid_argument("Attention manual_scale must be > 0 when provided");
+    }
+
+    if (config_.causal && query.rows() != key.rows())
+    {
+        throw std::invalid_argument("Causal attention requires query.rows() == key.rows()");
+    }
+
+    const size_t seq_q = query.rows();
+    const size_t seq_k = key.rows();
+    const size_t d_k = key.cols();
+
+    Tensor2D key_transpose = key;
+    key_transpose.transpose();
+
+    Tensor2D scores = matmul(query, key_transpose);
+
+    float scale = 1.0f;
+    if (config_.manual_scale > 0.0f)
+    {
+        scale = config_.manual_scale;
+    }
+    else if (config_.enable_scaling)
+    {
+        scale = 1.0f / static_cast<float>(std::sqrt(static_cast<double>(d_k)));
+    }
+
+    if (scale != 1.0f)
+    {
+        for (size_t r = 0; r < scores.rows(); ++r)
+        {
+            for (size_t c = 0; c < scores.cols(); ++c)
+            {
+                scores(r, c) *= scale;
+            }
+        }
+    }
+
+    if (additive_mask != nullptr)
+    {
+        for (size_t r = 0; r < scores.rows(); ++r)
+        {
+            for (size_t c = 0; c < scores.cols(); ++c)
+            {
+                scores(r, c) += (*additive_mask)(r, c);
+            }
+        }
+    }
+
+    if (config_.causal)
+    {
+        constexpr float neg_inf = -std::numeric_limits<float>::infinity();
+        for (size_t r = 0; r < seq_q; ++r)
+        {
+            for (size_t c = r + 1; c < seq_k; ++c)
+            {
+                scores(r, c) = neg_inf;
+            }
+        }
+    }
+
+    const Tensor2D probs = softmax(scores, SoftmaxAxis::Row, config_.softmax_epsilon, 1.0f);
+    return matmul(probs, value);
 }
 
-void writeln_int(int x)
+const AttentionConfig& Attention::config() const
 {
-    if (x < 0)
-    {
-        putchar('-');
-        x = -x;
-    }
-    char st[60];
-    int top = 0;
-    do
-    {
-        st[top++] = (char)(x % 10 + '0');
-        x /= 10;
-    }
-    while (x > 0);
-    while (top > 0)
-    {
-        putchar(st[--top]);
-    }
-    putchar('\n');
+    return config_;
 }
 
-int main()
+Tensor2D scaled_dot_product_attention(const Tensor2D& query,
+                                      const Tensor2D& key,
+                                      const Tensor2D& value,
+                                      const Tensor2D* additive_mask,
+                                      AttentionConfig config)
 {
-    return 0;
+    return Attention(config).forward(query, key, value, additive_mask);
 }

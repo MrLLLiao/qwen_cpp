@@ -20,17 +20,22 @@ public:
     Tensor2D();
     Tensor2D(size_t rows, size_t cols);
     Tensor2D(size_t rows, size_t cols, float init_value);
+    Tensor2D(const Tensor2D& other) = default;
 
     [[nodiscard]] size_t rows() const;
     [[nodiscard]] size_t cols() const;
     [[nodiscard]] size_t size() const;
     [[nodiscard]] double max_value() const;
 
+    void transpose();
+
     float& at(size_t r, size_t c);
-    const float& at(size_t r, size_t c) const;
+    [[nodiscard]] const float& at(size_t r, size_t c) const;
 
     float& operator()(size_t r, size_t c);
     const float& operator()(size_t r, size_t c) const;
+
+    Tensor2D& operator=(const Tensor2D& other);
 
     void fill(float value);
     void print() const;

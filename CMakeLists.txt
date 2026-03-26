@@ -11,6 +11,7 @@ add_library(ops_core
         src/tensor.cpp
         src/ops/matmul.cpp
         src/ops/softmax.cpp
+        src/ops/attention.cpp
 )
 target_include_directories(ops_core PUBLIC
         include
@@ -29,3 +30,6 @@ add_executable(softmax-test tests/softmax_test.cpp)
 target_include_directories(softmax-test PRIVATE tests)
 target_link_libraries(softmax-test PRIVATE ops_core)
 
+add_executable(attention-test tests/attention_test.cpp)
+target_include_directories(attention-test PRIVATE tests)
+target_link_libraries(attention-test PRIVATE ops_core)
