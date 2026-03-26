@@ -79,7 +79,7 @@ int main()
             {1.0f, 0.0f},
             {0.0f, 1.0f}
         });
-        const Tensor2D key = query;
+        const Tensor2D& key = query;
         const Tensor2D value = make_tensor({
             {2.0f, 0.0f},
             {0.0f, 4.0f}
