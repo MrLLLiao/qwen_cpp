@@ -18,6 +18,16 @@ target_include_directories(ops_core PUBLIC
         include/ops
         include/model)
 
+add_library(cache_core
+        src/cache/KVCache.cpp
+        src/cache/CacheAllocator.cpp
+        src/cache/CacheManager.cpp
+)
+target_include_directories(cache_core PUBLIC
+        include
+        include/ops
+)
+
 add_executable(tensor-test tests/tensor_test.cpp)
 target_include_directories(tensor-test PRIVATE tests)
 target_link_libraries(tensor-test PRIVATE ops_core)
