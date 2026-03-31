@@ -1,5 +1,6 @@
 #include "cache/CacheManager.h"
 
+#include <ranges>
 #include <stdexcept>
 
 CacheManager::CacheManager() = default;
@@ -11,21 +12,67 @@ CacheManager::CacheManager(const ManagerConfig& config)
 
 void CacheManager::configure(const ManagerConfig& config)
 {
-    // TODO: 增加配置合法性校验与热更新策略。
+    if (config.kv_config.num_layers == 0)
+    {
+        throw std::invalid_argument("CacheManager::configure num_layers must be > 0");
+    }
+    if (config.kv_config.num_heads == 0)
+    {
+        throw std::invalid_argument("CacheManager::configure num_heads must be > 0");
+    }
+    if (config.kv_config.head_dim == 0)
+    {
+        throw std::invalid_argument("CacheManager::configure head_dim must be > 0");
+    }
+    if (config.kv_config.max_tokens == 0)
+    {
+        throw std::invalid_argument("CacheManager::configure max_tokens must be > 0");
+    }
+
+    caches_.clear();
+
     config_ = config;
     allocator_.configure(config_.allocator_max_buffers);
 }
 
 void CacheManager::clear()
 {
-    // TODO: 考虑并发访问场景下的安全清理。
+    for (auto& kv_cache : caches_ | std::views::values)
+    {
+        if (!kv_cache.initialized())
+        {
+            continue;
+        }
+
+        const auto& kv_cfg = kv_cache.config();
+        for (size_t layer = 0; layer < kv_cfg.num_layers; ++layer)
+        {
+            if (!kv_cache.has_layer(layer))
+            {
+                continue;
+            }
+
+            const auto& k = kv_cache.key(layer);
+            if (k.rows() > 0 && k.cols() > 0)
+            {
+                allocator_.release(k);
+            }
+
+            const auto& v = kv_cache.value(layer);
+            if (v.rows() > 0 && v.cols() > 0)
+            {
+                allocator_.release(v);
+            }
+        }
+    }
+
     caches_.clear();
     allocator_.reset();
 }
 
 bool CacheManager::has_cache(const CacheId& cache_id) const
 {
-    return caches_.find(cache_id) != caches_.end();
+    return caches_.contains(cache_id);
 }
 
 size_t CacheManager::active_cache_count() const
@@ -55,12 +102,38 @@ KVCache& CacheManager::create_cache(const CacheId& cache_id)
 
 void CacheManager::remove_cache(const CacheId& cache_id)
 {
-    const auto erased = caches_.erase(cache_id);
-    if (erased == 0)
+    auto it = caches_.find(cache_id);
+    if (it == caches_.end())
     {
         throw std::out_of_range("CacheManager::remove_cache cache id not found");
     }
-    // TODO: 与 allocator 联动释放该 cache 占用资源。
+
+    KVCache& kv_cache = it->second;
+    if (kv_cache.initialized())
+    {
+        const auto& kv_cfg = kv_cache.config();
+        for (size_t layer = 0; layer < kv_cfg.num_layers; ++layer)
+        {
+            if (!kv_cache.has_layer(layer))
+            {
+                continue;
+            }
+
+            const auto& k = kv_cache.key(layer);
+            if (k.rows() > 0 && k.cols() > 0)
+            {
+                allocator_.release(k);
+            }
+
+            const auto& v = kv_cache.value(layer);
+            if (v.rows() > 0 && v.cols() > 0)
+            {
+                allocator_.release(v);
+            }
+        }
+    }
+
+    caches_.erase(it);
 }
 
 KVCache& CacheManager::cache(const CacheId& cache_id)
@@ -87,6 +160,7 @@ const CacheManager::ManagerConfig& CacheManager::config() const
 {
     return config_;
 }
+
 CacheAllocator& CacheManager::allocator()
 {
     return allocator_;

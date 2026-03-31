@@ -6,6 +6,7 @@
 #define QWEN_CPP_CACHEALLOCATOR_H
 
 #include <cstddef>
+#include <unordered_map>
 #include <vector>
 
 #include "tensor.h"
@@ -98,8 +99,30 @@ public:
     void release(const Tensor2D& buffer);
 
 private:
+    struct ShapeKey
+    {
+        size_t rows{0};
+        size_t cols{0};
+
+        bool operator==(const ShapeKey& other) const
+        {
+            return rows == other.rows && cols == other.cols;
+        }
+    };
+
+    struct ShapeKeyHash
+    {
+        size_t operator()(const ShapeKey& key) const noexcept
+        {
+            return std::hash<size_t>{}(key.rows) ^ (std::hash<size_t>{}(key.cols) << 1U);
+        }
+    };
+
+private:
     size_t max_buffers_{0};     ///< 最大缓冲区容量限制
     size_t used_buffers_{0};    ///< 当前已使用的缓冲区数
+
+    std::unordered_map<ShapeKey, std::vector<Tensor2D>, ShapeKeyHash> free_pool_;
 };
 
 #endif //QWEN_CPP_CACHEALLOCATOR_H

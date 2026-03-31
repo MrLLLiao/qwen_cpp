@@ -27,6 +27,7 @@ target_include_directories(cache_core PUBLIC
         include
         include/ops
 )
+target_link_libraries(cache_core PUBLIC ops_core)
 
 add_executable(tensor-test tests/tensor_test.cpp)
 target_include_directories(tensor-test PRIVATE tests)
@@ -43,3 +44,7 @@ target_link_libraries(softmax-test PRIVATE ops_core)
 add_executable(attention-test tests/attention_test.cpp)
 target_include_directories(attention-test PRIVATE tests)
 target_link_libraries(attention-test PRIVATE ops_core)
+
+add_executable(kvcache-test tests/KVCache_test.cpp)
+target_include_directories(kvcache-test PRIVATE tests)
+target_link_libraries(kvcache-test PRIVATE cache_core)

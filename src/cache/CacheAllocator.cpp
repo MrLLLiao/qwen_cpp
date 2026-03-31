@@ -11,17 +11,13 @@ CacheAllocator::CacheAllocator(size_t max_buffers)
 
 void CacheAllocator::configure(size_t max_buffers)
 {
-    // TODO: 接入真实内存池/页管理策略并做参数校验。
     max_buffers_ = max_buffers;
-    if (used_buffers_ > max_buffers_)
-    {
-        used_buffers_ = max_buffers_;
-    }
+    used_buffers_ = 0;
+    free_pool_.clear();
 }
 
 void CacheAllocator::reset()
 {
-    // TODO: 回收所有已分配缓存块。
     used_buffers_ = 0;
 }
 
@@ -41,21 +37,75 @@ size_t CacheAllocator::free_buffers() const
 
 Tensor2D CacheAllocator::allocate(const AllocationSpec& spec)
 {
-    (void)spec;
-    // TODO: 按 AllocationSpec 从内存池分配并跟踪生命周期。
-    throw std::logic_error("TODO: CacheAllocator::allocate is not implemented");
+    if (spec.cols == 0 || spec.rows == 0)
+    {
+        throw std::invalid_argument("invalid shape");
+    }
+    if (used_buffers_ >= max_buffers_)
+    {
+        throw std::bad_alloc();
+    }
+
+    ShapeKey k{spec.rows, spec.cols};
+    auto& bucket = free_pool_[k];
+
+    Tensor2D out;
+    if (!bucket.empty())
+    {
+        out = bucket.back();
+        bucket.pop_back();
+    }
+    else
+    {
+        out = Tensor2D(spec.rows, spec.cols);
+    }
+
+    ++ used_buffers_;
+    return out;
 }
 
 std::vector<Tensor2D> CacheAllocator::allocate_batch(const AllocationSpec& spec)
 {
-    (void)spec;
-    // TODO: 批量分配缓存块，优化碎片与分配开销。
-    throw std::logic_error("TODO: CacheAllocator::allocate_batch is not implemented");
+    if (spec.rows == 0 || spec.cols == 0)
+    {
+        throw std::invalid_argument("invalid shape");
+    }
+
+    if (spec.count == 0)
+    {
+        return {};
+    }
+
+    if (spec.count > free_buffers())
+    {
+        throw std::bad_alloc();
+    }
+
+    std::vector<Tensor2D> out;
+    out.reserve(spec.count);
+
+    for (size_t i = 0; i < spec.count; ++i)
+    {
+        out.push_back(allocate(spec));
+    }
+
+    return out;
 }
 
 void CacheAllocator::release(const Tensor2D& buffer)
 {
-    (void)buffer;
-    // TODO: 根据 buffer 元信息归还到内存池，并更新 used_buffers_。
-    throw std::logic_error("TODO: CacheAllocator::release is not implemented");
+    if (buffer.cols() == 0 || buffer.rows() == 0)
+    {
+        throw std::invalid_argument("invalid shape");
+    }
+    if (used_buffers_ == 0)
+    {
+        throw std::logic_error("CacheAllocator::release called when no buffers are in use");
+    }
+
+    ShapeKey k{buffer.rows(), buffer.cols()};
+    auto& bucket = free_pool_[k];
+
+    bucket.push_back(buffer);
+    --used_buffers_;
 }

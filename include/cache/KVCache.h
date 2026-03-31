@@ -6,6 +6,7 @@
 #define QWEN_CPP_KVCACHE_H
 
 #include <cstddef>
+#include <limits>
 #include <vector>
 
 #include "tensor.h"
@@ -21,6 +22,22 @@
  */
 class KVCache final
 {
+public:
+    struct Tensor2DView
+    {
+        const Tensor2D* tensor{nullptr};
+        size_t row_offset{0};
+        size_t row_count{0};
+
+        [[nodiscard]] bool empty() const;
+        [[nodiscard]] size_t rows() const;
+        [[nodiscard]] size_t cols() const;
+        [[nodiscard]] const float& at(size_t r, size_t c) const;
+        [[nodiscard]] const float& operator()(size_t r, size_t c) const;
+    };
+
+    static constexpr size_t kAllRows = std::numeric_limits<size_t>::max();
+
 public:
     /**
      * @struct Config
@@ -110,6 +127,26 @@ public:
      * @throws std::out_of_range 当layer_idx超出范围时抛出异常
      */
     [[nodiscard]] const Tensor2D& value(size_t layer_idx) const;
+
+    /**
+     * @brief 获取指定层Key张量的行视图（零拷贝）
+     * @param layer_idx 层索引（从0开始）
+     * @param row_offset 起始行偏移
+     * @param row_count 视图行数；传kAllRows表示直到末尾
+     * @return Key张量的只读视图
+     */
+    [[nodiscard]] Tensor2DView key_view(size_t layer_idx, size_t row_offset = 0,
+                                        size_t row_count = kAllRows) const;
+
+    /**
+     * @brief 获取指定层Value张量的行视图（零拷贝）
+     * @param layer_idx 层索引（从0开始）
+     * @param row_offset 起始行偏移
+     * @param row_count 视图行数；传kAllRows表示直到末尾
+     * @return Value张量的只读视图
+     */
+    [[nodiscard]] Tensor2DView value_view(size_t layer_idx, size_t row_offset = 0,
+                                          size_t row_count = kAllRows) const;
 
     /**
      * @brief 获取指定层已缓存的token数量
