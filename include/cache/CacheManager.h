@@ -79,7 +79,9 @@ public:
      * @brief 创建新的KV缓存实例
      * @param cache_id 新缓存的唯一标识符
      * @return 新创建的KVCache引用
-     * @throws std::runtime_error 当超过max_active_caches限制或ID已存在时抛出异常
+     * @throws std::logic_error 当管理器尚未 configure 时抛出异常
+     * @throws std::invalid_argument 当ID已存在时抛出异常
+     * @throws std::runtime_error 当超过max_active_caches限制时抛出异常
      */
     KVCache& create_cache(const CacheId& cache_id);
 

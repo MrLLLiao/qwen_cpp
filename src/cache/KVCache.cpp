@@ -1,7 +1,6 @@
 #include "cache/KVCache.h"
 
 #include <algorithm>
-#include <numeric>
 #include <stdexcept>
 
 bool KVCache::Tensor2DView::empty() const
@@ -55,6 +54,23 @@ void KVCache::reset()
 
 void KVCache::reset(const Config& config)
 {
+    if (config.num_layers == 0)
+    {
+        throw std::invalid_argument("KVCache::reset num_layers must be > 0");
+    }
+    if (config.num_heads == 0)
+    {
+        throw std::invalid_argument("KVCache::reset num_heads must be > 0");
+    }
+    if (config.head_dim == 0)
+    {
+        throw std::invalid_argument("KVCache::reset head_dim must be > 0");
+    }
+    if (config.max_tokens == 0)
+    {
+        throw std::invalid_argument("KVCache::reset max_tokens must be > 0");
+    }
+
     config_ = config;
     keys_.assign(config_.num_layers, Tensor2D{});
     values_.assign(config_.num_layers, Tensor2D{});
@@ -223,5 +239,19 @@ size_t KVCache::token_count(size_t layer_idx) const
 
 size_t KVCache::total_token_count() const
 {
-    return std::accumulate(token_counts_.begin(), token_counts_.end(), static_cast<size_t>(0));
+    if (token_counts_.empty())
+    {
+        return 0;
+    }
+
+    const size_t expected = token_counts_.front();
+    for (const size_t count : token_counts_)
+    {
+        if (count != expected)
+        {
+            throw std::runtime_error("KVCache::total_token_count inconsistent per-layer token counts");
+        }
+    }
+
+    return expected;
 }

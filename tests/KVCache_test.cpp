@@ -72,6 +72,55 @@ void test_reset_and_basic_state()
     expect_true(!cache.initialized(), "cache should be uninitialized after reset()");
 }
 
+void test_reset_validation()
+{
+    KVCache cache;
+
+    bool thrown = false;
+    try
+    {
+        cache.reset(KVCache::Config{0, 2, 2, 8});
+    }
+    catch (const std::invalid_argument&)
+    {
+        thrown = true;
+    }
+    expect_true(thrown, "reset should throw when num_layers is 0");
+
+    thrown = false;
+    try
+    {
+        cache.reset(KVCache::Config{1, 0, 2, 8});
+    }
+    catch (const std::invalid_argument&)
+    {
+        thrown = true;
+    }
+    expect_true(thrown, "reset should throw when num_heads is 0");
+
+    thrown = false;
+    try
+    {
+        cache.reset(KVCache::Config{1, 2, 0, 8});
+    }
+    catch (const std::invalid_argument&)
+    {
+        thrown = true;
+    }
+    expect_true(thrown, "reset should throw when head_dim is 0");
+
+    thrown = false;
+    try
+    {
+        cache.reset(KVCache::Config{1, 2, 2, 0});
+    }
+    catch (const std::invalid_argument&)
+    {
+        thrown = true;
+    }
+    expect_true(thrown, "reset should throw when max_tokens is 0");
+}
+
 void test_append_and_growth()
 {
     KVCache cache;
@@ -184,6 +233,32 @@ void test_append_validation()
     expect_true(thrown, "append should throw when exceeding max_tokens");
 }
 
+void test_total_token_count_contract()
+{
+    KVCache cache;
+    cache.reset(KVCache::Config{2, 2, 2, 8});
+
+    const Tensor2D one_token = make_tensor({
+        {1.0F, 2.0F, 3.0F, 4.0F}
+    });
+
+    cache.append(0, one_token, one_token);
+
+    bool thrown = false;
+    try
+    {
+        static_cast<void>(cache.total_token_count());
+    }
+    catch (const std::runtime_error&)
+    {
+        thrown = true;
+    }
+    expect_true(thrown, "total_token_count should throw when per-layer counts are inconsistent");
+
+    cache.append(1, one_token, one_token);
+    expect_true(cache.total_token_count() == 1, "total_token_count should equal per-layer token count when consistent");
+}
+
 void test_views()
 {
     KVCache cache;
@@ -230,8 +305,10 @@ void test_views()
 int main()
 {
     test_reset_and_basic_state();
+    test_reset_validation();
     test_append_and_growth();
     test_append_validation();
+    test_total_token_count_contract();
     test_views();
 
     std::cout << "[PASS] KVCache tests passed.\n";

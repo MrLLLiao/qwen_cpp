@@ -173,6 +173,38 @@ int main()
             thrown = true;
         }
         expect_true(thrown, "causal attention should require seq_q == seq_k");
+
+        thrown = false;
+        try
+        {
+            const Tensor2D query(1, 2, 0.0f);
+            const Tensor2D key(1, 2, 0.0f);
+            const Tensor2D value(1, 2, 0.0f);
+            AttentionConfig cfg;
+            cfg.manual_scale = 0.0f;
+            static_cast<void>(scaled_dot_product_attention(query, key, value, nullptr, cfg));
+        }
+        catch (const std::invalid_argument&)
+        {
+            thrown = true;
+        }
+        expect_true(thrown, "attention should throw when manual_scale == 0");
+
+        thrown = false;
+        try
+        {
+            const Tensor2D query(1, 2, 0.0f);
+            const Tensor2D key(1, 2, 0.0f);
+            const Tensor2D value(1, 2, 0.0f);
+            AttentionConfig cfg;
+            cfg.softmax_epsilon = -1e-6f;
+            static_cast<void>(scaled_dot_product_attention(query, key, value, nullptr, cfg));
+        }
+        catch (const std::invalid_argument&)
+        {
+            thrown = true;
+        }
+        expect_true(thrown, "attention should throw when softmax_epsilon is negative");
     }
 
     std::cout << "[PASS] attention tests passed" << '\n';
