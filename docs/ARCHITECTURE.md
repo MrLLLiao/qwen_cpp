@@ -125,6 +125,25 @@ ops    (纯计算)
 - engine 在每个阶段只做一件事：组织调用与状态推进。
 - model 接口优先稳定语义（如 `forward` 输入输出约定），再考虑内部实现。
 
+### 4.1 固定契约（当前实现）
+
+- `Tensor2D`
+  - 默认构造为空张量（`rows=0, cols=0, size=0`）。
+  - `at/operator()` 越界统一抛 `std::out_of_range`。
+  - `max_value()` 在空张量上抛 `std::runtime_error`。
+
+- `Attention`
+  - `additive_mask` 形状必须为 `[query.rows(), key.rows()]`。
+  - 先叠加 `additive_mask`，再应用 `causal` 上三角屏蔽。
+  - 非法配置（如 `manual_scale == 0`、`softmax_epsilon < 0`）抛 `std::invalid_argument`。
+
+- `KVCache::append`
+  - 仅允许向有效层追加。
+  - `key/value` 必须非空且形状一致。
+  - `cols` 必须等于 `num_heads * head_dim`。
+  - 追加后 token 不得超过 `max_tokens`。
+  - `total_token_count()` 语义固定为“缓存序列长度”（各层一致时返回该值；不一致抛异常）。
+
 ---
 
 ## 5. 演进建议

@@ -42,6 +42,8 @@ cmake --build build
 ./build/softmax-test.exe
 ./build/attention-test.exe
 ./build/kvcache-test.exe
+./build/cache-allocator-test.exe
+./build/cache-manager-test.exe
 ```
 
 ---

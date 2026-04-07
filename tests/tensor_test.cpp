@@ -118,6 +118,29 @@ void test_max_value()
     assert(nearly_equal(static_cast<float>(tensor.max_value()), 42.0F));
 }
 
+void test_empty_tensor_contract()
+{
+    Tensor2D empty;
+    assert(empty.rows() == 0);
+    assert(empty.cols() == 0);
+    assert(empty.size() == 0);
+
+    empty.transpose();
+    assert(empty.rows() == 0);
+    assert(empty.cols() == 0);
+
+    bool thrown = false;
+    try
+    {
+        static_cast<void>(empty(0, 0));
+    }
+    catch (const std::out_of_range&)
+    {
+        thrown = true;
+    }
+    assert(thrown);
+}
+
 void test_exceptions()
 {
     Tensor2D tensor(2, 2, 0.0F);
@@ -155,6 +178,7 @@ int main()
     test_transpose_square();
     test_transpose_rectangular();
     test_max_value();
+    test_empty_tensor_contract();
     test_exceptions();
 
     std::cout << "[PASS] Tensor2D tests passed.\n";

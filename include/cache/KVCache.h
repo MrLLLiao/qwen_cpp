@@ -75,6 +75,7 @@ public:
      * @brief 重置并重新配置缓存
      * @param config 新的缓存配置
      * @note 该操作会根据新配置重新分配内存空间
+     * @throws std::invalid_argument 当配置包含0值（num_layers/num_heads/head_dim/max_tokens）
      */
     void reset(const Config& config);
 
@@ -104,10 +105,17 @@ public:
      * 该方法用于在推理过程中逐步增长KV缓存。在prefill阶段追加初始token，
      * 在decode阶段追加每个新生成的token的KV值。
      * 
+     * 约束：
+     * - key/value 必须是非空张量
+     * - key 与 value 的 shape 必须完全一致
+     * - key.cols()/value.cols() 必须等于 num_heads * head_dim
+     * - 追加后 token 总数不得超过 max_tokens
+     *
      * @param layer_idx 目标层索引（从0开始）
      * @param key 该层新的Key张量
      * @param value 该层新的Value张量
      * @throws std::out_of_range 当layer_idx超出范围时抛出异常
+     * @throws std::invalid_argument 当输入形状不合法时抛出异常
      * @throws std::runtime_error 当追加后超过max_tokens限制时抛出异常
      */
     void append(size_t layer_idx, const Tensor2D& key, const Tensor2D& value);
@@ -157,12 +165,13 @@ public:
     [[nodiscard]] size_t token_count(size_t layer_idx) const;
 
     /**
-     * @brief 获取所有层已缓存的平均token数量
-     * 
-     * 在正常情况下，所有层的token数应该相同。
-     * 该方法返回总的token数或第一层的token数。
-     * 
-     * @return 缓存中的token总数
+     * @brief 获取缓存序列长度（token 数）
+     *
+     * 语义：返回“每层应一致的 token 数”，即第一层 token_count。
+     * 若层间 token_count 不一致，说明 append 生命周期使用错误，抛出异常。
+     *
+     * @return 当前缓存序列长度
+     * @throws std::runtime_error 当不同层 token_count 不一致时抛出异常
      */
     [[nodiscard]] size_t total_token_count() const;
 

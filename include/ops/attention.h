@@ -44,6 +44,11 @@ struct AttentionConfig
  * - value: [seq_k, d_v]
  * - additive_mask（可选）: [seq_q, seq_k]
  *
+ * mask 规则（固定契约）：
+ * - additive_mask 逐元素加到 attention score（可用 0 / -inf 或大负数）。
+ * - 当 causal=true 时，再额外屏蔽上三角（禁止看未来 token）。
+ * - 若同时提供 additive_mask + causal，则两者叠加生效。
+ *
  * 输出：
  * - out:   [seq_q, d_v]
  */

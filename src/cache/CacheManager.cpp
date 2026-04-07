@@ -1,6 +1,5 @@
 #include "cache/CacheManager.h"
 
-#include <ranges>
 #include <stdexcept>
 
 CacheManager::CacheManager() = default;
@@ -37,35 +36,6 @@ void CacheManager::configure(const ManagerConfig& config)
 
 void CacheManager::clear()
 {
-    for (auto& kv_cache : caches_ | std::views::values)
-    {
-        if (!kv_cache.initialized())
-        {
-            continue;
-        }
-
-        const auto& kv_cfg = kv_cache.config();
-        for (size_t layer = 0; layer < kv_cfg.num_layers; ++layer)
-        {
-            if (!kv_cache.has_layer(layer))
-            {
-                continue;
-            }
-
-            const auto& k = kv_cache.key(layer);
-            if (k.rows() > 0 && k.cols() > 0)
-            {
-                allocator_.release(k);
-            }
-
-            const auto& v = kv_cache.value(layer);
-            if (v.rows() > 0 && v.cols() > 0)
-            {
-                allocator_.release(v);
-            }
-        }
-    }
-
     caches_.clear();
     allocator_.reset();
 }
@@ -82,6 +52,11 @@ size_t CacheManager::active_cache_count() const
 
 KVCache& CacheManager::create_cache(const CacheId& cache_id)
 {
+    if (config_.kv_config.num_layers == 0)
+    {
+        throw std::logic_error("CacheManager::create_cache manager is not configured");
+    }
+
     if (has_cache(cache_id))
     {
         throw std::invalid_argument("CacheManager::create_cache cache already exists");
@@ -106,31 +81,6 @@ void CacheManager::remove_cache(const CacheId& cache_id)
     if (it == caches_.end())
     {
         throw std::out_of_range("CacheManager::remove_cache cache id not found");
-    }
-
-    KVCache& kv_cache = it->second;
-    if (kv_cache.initialized())
-    {
-        const auto& kv_cfg = kv_cache.config();
-        for (size_t layer = 0; layer < kv_cfg.num_layers; ++layer)
-        {
-            if (!kv_cache.has_layer(layer))
-            {
-                continue;
-            }
-
-            const auto& k = kv_cache.key(layer);
-            if (k.rows() > 0 && k.cols() > 0)
-            {
-                allocator_.release(k);
-            }
-
-            const auto& v = kv_cache.value(layer);
-            if (v.rows() > 0 && v.cols() > 0)
-            {
-                allocator_.release(v);
-            }
-        }
     }
 
     caches_.erase(it);
