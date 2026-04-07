@@ -25,6 +25,7 @@ size_t CacheAllocator::max_buffers() const
 {
     return max_buffers_;
 }
+
 size_t CacheAllocator::used_buffers() const
 {
     return used_buffers_;
