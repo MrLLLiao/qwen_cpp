@@ -29,6 +29,16 @@ target_include_directories(cache_core PUBLIC
 )
 target_link_libraries(cache_core PUBLIC ops_core)
 
+add_library(engine_core
+        src/engine/prefill.cpp
+        src/engine/decode.cpp
+)
+target_include_directories(engine_core PUBLIC
+        include
+        include/engine
+)
+target_link_libraries(engine_core PUBLIC cache_core)
+
 enable_testing()
 
 function(add_unit_test TEST_NAME TEST_SOURCE TEST_LIB)
@@ -45,3 +55,4 @@ add_unit_test(attention-test tests/attention_test.cpp ops_core)
 add_unit_test(kvcache-test tests/KVCache_test.cpp cache_core)
 add_unit_test(cache-allocator-test tests/cache_allocator_test.cpp cache_core)
 add_unit_test(cache-manager-test tests/cache_manager_test.cpp cache_core)
+add_unit_test(prefill-test tests/prefill_test.cpp engine_core)
