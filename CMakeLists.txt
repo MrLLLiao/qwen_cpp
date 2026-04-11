@@ -37,7 +37,7 @@ target_include_directories(engine_core PUBLIC
         include
         include/engine
 )
-target_link_libraries(engine_core PUBLIC cache_core)
+target_link_libraries(engine_core PUBLIC ops_core cache_core)
 
 enable_testing()
 

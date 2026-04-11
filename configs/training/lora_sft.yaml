@@ -1,0 +1,19 @@
+# TODO: 定义 LoRA/QLoRA 训练默认配置
+run_name: "todo-lora-run"
+base_model: ""
+dataset:
+  # TODO: 绑定数据版本与切分
+  name: ""
+  train_split: "train"
+  valid_split: "validation"
+training:
+  # TODO: 根据显存容量调整参数
+  epochs: 1
+  learning_rate: 2e-4
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 8
+lora:
+  # TODO: 根据模型规模调整 LoRA 参数
+  r: 8
+  alpha: 16
+  dropout: 0.05

@@ -1,0 +1,8 @@
+# TODO: 定义推理/训练评测配置
+model_manifest: ""
+metrics:
+  - perplexity
+  - instruction_following
+  - latency_ttft
+  - tokens_per_second
+# TODO: 增加评测数据集与阈值配置

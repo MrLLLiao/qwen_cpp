@@ -1,0 +1,14 @@
+{
+  "manifest_version": "0.1.0",
+  "model_id": "TODO:model-id",
+  "family": "TODO:model-family",
+  "artifacts": {
+    "gguf": "TODO:relative/path/to/model.gguf",
+    "tokenizer": "TODO:relative/path/to/tokenizer"
+  },
+  "metadata": {
+    "license": "TODO:license-id",
+    "sha256": "TODO:file-sha256",
+    "source": "TODO:training/export provenance"
+  }
+}

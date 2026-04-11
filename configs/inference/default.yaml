@@ -1,0 +1,14 @@
+# TODO: 定义默认推理配置（GGUF 本地推理最小可用参数）
+model_manifest: ""
+runtime:
+  # TODO: 根据硬件补全线程与上下文参数
+  n_ctx: 4096
+  n_threads: 4
+  n_gpu_layers: 0
+generation:
+  # TODO: 根据任务场景调优采样参数
+  max_new_tokens: 256
+  temperature: 0.7
+  top_k: 40
+  top_p: 0.9
+  repeat_penalty: 1.1
