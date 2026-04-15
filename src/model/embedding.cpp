@@ -2,11 +2,9 @@
 
 #include <algorithm>
 
-#include "rapidjson/document.h"
-#include "rapidjson/istreamwrapper.h"
+#include "simdjson.h"
 
 #include <stdexcept>
-#include <fstream>
 #include <filesystem>
 #include <limits>
 
@@ -27,66 +25,71 @@ bool Embedding::load_vocab(const std::string& vocab_path)
         return false;
     }
 
-    std::ifstream ifs(path);
-    if (!ifs.is_open())
-    {
-        throw std::runtime_error("Embedding::load_vocab: Can't open file: " + path.string());
-    }
-
-    rapidjson::IStreamWrapper isw(ifs);
-    rapidjson::Document doc;
-    doc.ParseStream(isw);
-
-    if (doc.HasParseError())
+    simdjson::dom::parser parser;
+    simdjson::dom::element doc;
+    const auto load_error = parser.load(path.string()).get(doc);
+    if (load_error)
     {
         throw std::runtime_error(
-            std::string("Embedding::load_vocab: Parsing error at offset ") +
-            std::to_string(doc.GetErrorOffset()));
+            "Embedding::load_vocab: Failed to parse vocab JSON: " +
+            std::string(simdjson::error_message(load_error)));
     }
 
-    if (!doc.IsObject())
+    simdjson::dom::object object;
+    const auto object_error = doc.get_object().get(object);
+    if (object_error == simdjson::INCORRECT_TYPE)
     {
         throw std::invalid_argument("Embedding::load_vocab: JSON root must be an object: {\"token\": id}");
     }
+    if (object_error)
+    {
+        throw std::runtime_error(
+            "Embedding::load_vocab: Failed to read JSON object: " +
+            std::string(simdjson::error_message(object_error)));
+    }
 
     std::unordered_map<std::string, TokenId> new_token_to_id;
-    new_token_to_id.reserve(doc.MemberCount());
-
     TokenId max_id = -1;
 
-    for (auto& [name, value] : doc.GetObject())
+    for (const auto field : object)
     {
-        const std::string token = name.GetString();
+        const std::string token(field.key);
         if (token.empty())
         {
             throw std::invalid_argument("Embedding::load_vocab: Token text must not be empty.");
         }
 
         std::int64_t parsed_id = 0;
-        if (value.IsString())
+        const auto int_result = field.value.get_int64();
+        if (!int_result.error())
         {
-            try
-            {
-                std::size_t processed = 0;
-                const std::string id_str = value.GetString();
-                parsed_id = std::stoll(id_str, &processed);
-                if (processed != id_str.size())
-                {
-                    throw std::invalid_argument("extra characters");
-                }
-            }
-            catch (const std::exception&)
-            {
-                throw std::invalid_argument("Embedding::load_vocab: Invalid id string for token: " + token);
-            }
-        }
-        else if (value.IsInt64())
-        {
-            parsed_id = value.GetInt64();
+            parsed_id = int_result.value_unsafe();
         }
         else
         {
-            throw std::invalid_argument("Embedding::load_vocab: Token id must be integer/string integer. token=" + token);
+            const auto string_result = field.value.get_string();
+            if (!string_result.error())
+            {
+                try
+                {
+                    const std::string id_str(string_result.value_unsafe());
+                    std::size_t processed = 0;
+                    parsed_id = std::stoll(id_str, &processed);
+                    if (processed != id_str.size())
+                    {
+                        throw std::invalid_argument("extra characters");
+                    }
+                }
+                catch (const std::exception&)
+                {
+                    throw std::invalid_argument("Embedding::load_vocab: Invalid id string for token: " + token);
+                }
+            }
+            else
+            {
+                throw std::invalid_argument(
+                    "Embedding::load_vocab: Token id must be integer/string integer. token=" + token);
+            }
         }
 
         if (parsed_id < 0 || parsed_id > std::numeric_limits<TokenId>::max())
@@ -95,7 +98,7 @@ bool Embedding::load_vocab(const std::string& vocab_path)
         }
 
         const auto token_id = static_cast<TokenId>(parsed_id);
-        if (new_token_to_id.contains(token))
+        if (new_token_to_id.find(token) != new_token_to_id.end())
         {
             throw std::invalid_argument("Embedding::load_vocab: Duplicate token: " + token);
         }
@@ -138,7 +141,7 @@ std::size_t Embedding::size() const
 
 bool Embedding::contains_token(const std::string& token) const
 {
-    return token_to_id_table_.contains(token);
+    return token_to_id_table_.find(token) != token_to_id_table_.end();
 }
 
 bool Embedding::contains_id(TokenId id) const

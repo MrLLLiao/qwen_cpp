@@ -279,7 +279,7 @@ void test_load_vocab_duplicate_token_and_duplicate_id_errors()
 {
     {
         Embedding embedding;
-        // RapidJSON 保留重复 key，便于覆盖 Duplicate token 分支。
+        // simdjson 会保留对象迭代中的重复 key，便于覆盖 Duplicate token 分支。
         const ScopedTempFile file(R"({"dup":1,"dup":2})");
 
         bool thrown = false;

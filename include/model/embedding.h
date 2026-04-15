@@ -19,7 +19,7 @@ namespace mini_llm::model {
  * 当前职责：
  * 1) 管理 token <-> id 的双向映射；
  * 2) 提供特殊 token（unk/pad/bos/eos）的配置与查询；
- * 3) 预留 vocab.json 加载入口，供后续 tokenizer/runner 对接。
+ * 3) 通过 simdjson 加载 vocab.json，供后续 tokenizer/runner 对接。
  */
 class Embedding {
 public:
@@ -29,7 +29,7 @@ public:
     Embedding() = default;
 
     /**
-     * @brief 从 vocab.json 加载词表。
+     * @brief 从 vocab.json 加载词表（基于 simdjson）。
      * @param vocab_path 词表文件路径。
      * @return 加载成功返回 true，否则返回 false。
      */
