@@ -1,11 +1,13 @@
 cmake_minimum_required(VERSION 3.20)
 project(qwen_cpp LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 23)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic -fpermissive")
+
+include_directories(third_party/rapidjson-1.1.0/include/)
 
 add_library(ops_core
         src/tensor.cpp
@@ -16,7 +18,8 @@ add_library(ops_core
 target_include_directories(ops_core PUBLIC
         include
         include/ops
-        include/model)
+        include/model
+)
 
 add_library(cache_core
         src/cache/KVCache.cpp
@@ -39,6 +42,22 @@ target_include_directories(engine_core PUBLIC
 )
 target_link_libraries(engine_core PUBLIC ops_core cache_core)
 
+add_library(model_core
+        src/model/attention.cpp
+        src/model/embedding.cpp
+        src/model/mlp.cpp
+        src/model/model_config.cpp
+        src/model/model_weights.cpp
+        src/model/model.cpp
+        src/model/rms_norm.cpp
+        src/model/transformer_block.cpp
+)
+target_include_directories(model_core PUBLIC
+        include
+        include/model
+)
+target_link_libraries(model_core PUBLIC ops_core cache_core engine_core)
+
 enable_testing()
 
 function(add_unit_test TEST_NAME TEST_SOURCE TEST_LIB)
@@ -57,3 +76,4 @@ add_unit_test(cache-allocator-test tests/cache_allocator_test.cpp cache_core)
 add_unit_test(cache-manager-test tests/cache_manager_test.cpp cache_core)
 add_unit_test(prefill-test tests/prefill_test.cpp engine_core)
 add_unit_test(decode-test tests/decode_test.cpp engine_core)
+add_unit_test(embedding-test tests/embedding_test.cpp model_core)
