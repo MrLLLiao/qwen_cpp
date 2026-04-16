@@ -7,18 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
 
-add_library(simdjson_core
-        third_party/simdjson/simdjson.cpp
-)
-target_include_directories(simdjson_core PUBLIC
-        third_party/simdjson
-)
-target_compile_definitions(simdjson_core PRIVATE
-        SIMDJSON_IMPLEMENTATION_ICELAKE=0
-        SIMDJSON_IMPLEMENTATION_HASWELL=0
-        SIMDJSON_IMPLEMENTATION_WESTMERE=0
-        SIMDJSON_IMPLEMENTATION_FALLBACK=1
-)
+add_subdirectory(third_party/simdjson)
 
 add_library(ops_core
         src/tensor.cpp
@@ -67,7 +56,7 @@ target_include_directories(model_core PUBLIC
         include
         include/model
 )
-target_link_libraries(model_core PUBLIC ops_core cache_core engine_core simdjson_core)
+target_link_libraries(model_core PUBLIC ops_core cache_core engine_core simdjson::simdjson)
 
 enable_testing()
 
