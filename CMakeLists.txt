@@ -1,79 +1,33 @@
 cmake_minimum_required(VERSION 3.20)
-project(qwen_cpp LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 23)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wextra -Wpedantic")
-
-add_subdirectory(third_party/simdjson)
-
-add_library(ops_core
-        src/tensor.cpp
-        src/ops/matmul.cpp
-        src/ops/softmax.cpp
-        src/ops/attention.cpp
-)
-target_include_directories(ops_core PUBLIC
-        include
-        include/ops
-        include/model
+project(qwen_cpp
+    VERSION 0.1.0
+    DESCRIPTION "qwen_cpp core libraries and tests"
+    LANGUAGES CXX
 )
 
-add_library(cache_core
-        src/cache/KVCache.cpp
-        src/cache/CacheAllocator.cpp
-        src/cache/CacheManager.cpp
-)
-target_include_directories(cache_core PUBLIC
-        include
-        include/ops
-)
-target_link_libraries(cache_core PUBLIC ops_core)
+# 标准 CTest 开关：BUILD_TESTING
+include(CTest)
 
-add_library(engine_core
-        src/engine/prefill.cpp
-        src/engine/decode.cpp
-)
-target_include_directories(engine_core PUBLIC
-        include
-        include/engine
-)
-target_link_libraries(engine_core PUBLIC ops_core cache_core)
+# 构建行为开关（便于 CI / 本地按需裁剪）
+option(QWEN_CPP_USE_BUNDLED_SIMDJSON "Use bundled simdjson from third_party/simdjson" ON)
 
-add_library(model_core
-        src/model/attention.cpp
-        src/model/embedding.cpp
-        src/model/mlp.cpp
-        src/model/model_config.cpp
-        src/model/model_weights.cpp
-        src/model/model.cpp
-        src/model/rms_norm.cpp
-        src/model/transformer_block.cpp
-)
-target_include_directories(model_core PUBLIC
-        include
-        include/model
-)
-target_link_libraries(model_core PUBLIC ops_core cache_core engine_core simdjson::simdjson)
+# 工程级配置模块
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+include(ProjectOptions)      # qwen_cpp::project_options
+include(CompilerWarnings)    # qwen_cpp::project_warnings
 
-enable_testing()
+# 第三方依赖：默认使用子模块，保留切换到系统包的能力
+if(QWEN_CPP_USE_BUNDLED_SIMDJSON)
+    add_subdirectory(third_party/simdjson EXCLUDE_FROM_ALL)
+else()
+    find_package(simdjson CONFIG REQUIRED)
+endif()
 
-function(add_unit_test TEST_NAME TEST_SOURCE TEST_LIB)
-    add_executable(${TEST_NAME} ${TEST_SOURCE})
-    target_include_directories(${TEST_NAME} PRIVATE tests)
-    target_link_libraries(${TEST_NAME} PRIVATE ${TEST_LIB})
-    add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
-endfunction()
+# 项目源码目标
+add_subdirectory(src)
 
-add_unit_test(tensor-test tests/tensor_test.cpp ops_core)
-add_unit_test(matmul-test tests/matmul_test.cpp ops_core)
-add_unit_test(softmax-test tests/softmax_test.cpp ops_core)
-add_unit_test(attention-test tests/attention_test.cpp ops_core)
-add_unit_test(kvcache-test tests/KVCache_test.cpp cache_core)
-add_unit_test(cache-allocator-test tests/cache_allocator_test.cpp cache_core)
-add_unit_test(cache-manager-test tests/cache_manager_test.cpp cache_core)
-add_unit_test(prefill-test tests/prefill_test.cpp engine_core)
-add_unit_test(decode-test tests/decode_test.cpp engine_core)
-add_unit_test(embedding-test tests/embedding_test.cpp model_core)
+# 测试（受 BUILD_TESTING 控制）
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
