@@ -92,7 +92,6 @@ target_link_libraries(model_core
     PUBLIC
         ops_core
         cache_core
-        engine_core
         simdjson::simdjson
     PRIVATE
         qwen_cpp::project_options

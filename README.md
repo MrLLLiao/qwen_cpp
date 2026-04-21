@@ -1,12 +1,13 @@
 # qwen_cpp
 
-一个面向 Transformer 推理路径的 C++ 学习型工程，当前包含：
+一个面向 Transformer 推理路径的 C++ 学习型工程，当前主线聚焦：
 - `Tensor2D` 基础张量容器
 - `ops` 纯计算算子（`matmul / softmax / attention`）
 - `cache` KV 缓存与分配管理
+- `engine` 中的 KV 编排（`prefill / decode`）
 - 基础单测（可执行测试）
 
-> 目标：逐步从“算子可用”演进到“可编排推理引擎（prefill/decode）”。
+> 目标：以 `tensor -> ops -> cache -> engine -> model` 为学习主线，逐步理解 Transformer 推理路径中的关键抽象与边界。
 
 ---
 
@@ -15,13 +16,21 @@
 - `include/`：头文件
   - `ops/`：计算算子接口
   - `cache/`：缓存与生命周期管理接口
-  - `model/`：模型层级抽象接口（当前为占位）
+  - `engine/`：prefill / decode 编排接口
+  - `model/`：模型层级抽象与实验模块
 - `src/`：实现文件
   - `ops/`：无状态算子实现
   - `cache/`：KVCache / CacheManager / CacheAllocator
-  - `engine/`：流程编排入口（当前为占位）
-  - `model/`：模型层实现（当前为占位）
-- `tests/`：可执行单测
+  - `engine/`：已实现的 KV 编排逻辑
+  - `model/`：学习阶段的模型组件与词表实验
+  - `tests/`：可执行单测
+
+## 主线与支线
+
+- 学习主线：`tensor -> ops -> cache -> engine -> model`
+- 当前主入口：测试，而不是 CLI 或服务
+- 实验支线：`tokenizer / runtime / backend / cli / service`
+- 实验支线代码当前保留为脚手架，用于后续学习，不作为当前主架构完成度标准
 
 ---
 
@@ -62,17 +71,19 @@ cmake --build build
   - 负责 prefill/decode 执行顺序
   - 串联 model、ops、cache，不做底层算子细节
 - **model：层级抽象**
-  - 定义 Block/Layer 等模型结构与参数访问
-  - 对 engine 提供稳定模型语义接口
+  - 作为学习阶段的下一层抽象，逐步定义 Block/Layer 等模型结构
+  - 当前包含少量实验模块，不要求形成完整产品接口
 
 ---
 
 ## 当前状态
 
 - ✅ `ops` 和 `cache` 已有可运行实现与测试
-- 🚧 `engine` 与 `model` 仍在搭建（当前多为占位文件）
+- ✅ `engine` 已完成 `prefill / decode` 的 KV 编排与测试
+- 🚧 `model` 处于学习扩展阶段，完成度不均
+- 🚧 `tokenizer / runtime / backend / cli / service` 为实验支线脚手架
 
 建议下一步：
-1. 在 `model` 中落地最小 `AttentionLayer` 抽象。
-2. 在 `engine/prefill.cpp` 中打通一次完整前向（含 KV append）。
-3. 在 `engine/decode.cpp` 中实现单步增量解码。
+1. 在 `model` 中落地最小 `Layer / Block` 抽象。
+2. 补一条从 `model` 到 `engine` 的教学型集成用例。
+3. 继续把实验支线与学习主线的边界写清楚，避免文档漂移。

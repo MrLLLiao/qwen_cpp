@@ -1,13 +1,20 @@
 # 架构职责文档
 
-本文档用于明确项目分层边界，避免“算子、状态、流程、语义”耦合。
+本文档用于明确学习主线的分层边界，避免“算子、状态、流程、语义”耦合。
+
+## 0. 当前定位
+
+- 本项目当前是学习型工程，不以产品化 runtime 为主线
+- 当前学习主线为：`tensor -> ops -> cache -> engine -> model`
+- `tokenizer / runtime / backend / cli / service` 当前属于实验支线
+- 实验支线代码可以保留，但不作为当前主架构稳定性的判断标准
 
 ## 1. 分层总览
 
 ```
 engine (流程编排)
-   ↓ 调用
-model  (层级抽象)
+   ↓ 可调用
+model  (学习中的层级抽象)
    ↓ 依赖
 ops    (纯计算)
    ↘
@@ -19,6 +26,10 @@ ops    (纯计算)
 - **cache 不做流程决策**
 - **engine 不实现底层数学细节**
 - **model 不直接管理全局生命周期**
+
+补充说明：
+- 当前仓库中 `engine` 的 KV 编排已落地，不再只是占位
+- 当前仓库中 `model` 仍处于学习扩展阶段，允许少量实验性模块存在
 
 ---
 
@@ -78,7 +89,7 @@ ops    (纯计算)
 - `src/engine/prefill.cpp`
 - `src/engine/decode.cpp`
 
-> 当前状态：占位，待逐步落地。
+> 当前状态：已完成 `prefill / decode` 的 KV 追加编排；尚未形成完整模型前向引擎。
 
 ---
 
@@ -97,7 +108,7 @@ ops    (纯计算)
 - `include/model/*`
 - `src/model/*`
 
-> 当前状态：占位，待补全接口与实现。
+> 当前状态：学习扩展阶段；部分模块已实现，部分仍为占位。
 
 ---
 
@@ -108,6 +119,7 @@ ops    (纯计算)
 - `engine -> cache`
 - `engine -> ops`（必要时）
 - `model -> ops`
+- `model -> cache`（仅当教学实现需要读取缓存结构时，避免反向触达 engine）
 
 不允许依赖：
 - `ops -> cache/engine/model`
@@ -148,7 +160,7 @@ ops    (纯计算)
 
 ## 5. 演进建议
 
-1. 定义 `model` 最小可用接口（如 `Layer::forward`，`AttentionLayer`）。
-2. 在 `engine` 增加请求上下文结构（session id、step、cache id）。
-3. 以端到端用例串联：`prefill -> decode(1 step)`，补齐集成测试。
+1. 定义 `model` 最小可用接口（如 `Layer::forward`，`TransformerBlock`）。
+2. 补一个教学型集成用例，把 `model` 与 `engine` 的边界通过测试固定下来。
+3. 为实验支线单独补一页说明，避免和学习主线混淆。
 4. 若后续引入并行/异步，仍保持本职责边界不变。
