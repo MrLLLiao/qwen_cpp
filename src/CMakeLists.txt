@@ -78,6 +78,7 @@ add_library(model_core
     model/model_weights.cpp
     model/model.cpp
     model/rms_norm.cpp
+    model/self-attention.cpp
     model/transformer_block.cpp
 )
 
