@@ -1,4 +1,15 @@
 # Unit Tests
 
-- TODO: 迁移/新增 tokenizer、runtime config、manifest parser 的单元测试。
-- TODO: 保持每个模块最小可验证覆盖。
+Unit tests validate individual modules without requiring model files or external services.
+
+Current labels:
+- `unit;tensor`: `tensor-test`
+- `unit;ops`: `matmul-test`, `softmax-test`, `attention-test`
+- `unit;cache`: `kvcache-test`, `cache-allocator-test`, `cache-manager-test`
+- `unit;model`: `embedding-test`, `model-test`
+
+Run:
+
+```powershell
+ctest --test-dir build -L unit --output-on-failure
+```

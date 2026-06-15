@@ -1,4 +1,16 @@
 # Integration Tests
 
-- TODO: 增加模型加载 + prompt->generate 集成测试。
-- TODO: 增加会话连续对话与错误路径测试。
+Integration tests validate collaboration across stable modules.
+
+Current labels:
+- `integration;engine;cache`: `prefill-test`, `decode-test`
+
+Run:
+
+```powershell
+ctest --test-dir build -L integration --output-on-failure
+```
+
+Planned next coverage:
+- model block forward plus KV write orchestration
+- manifest parsing plus backend selection once a real loader exists
