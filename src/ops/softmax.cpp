@@ -8,19 +8,19 @@
 
 Softmax::Softmax(SoftmaxConfig config) : config_(config) {}
 
-static bool is_valid_Tensor2D(const Tensor2D& input)
+static bool is_valid_tensor_matrix(const Tensor& input)
 {
     return input.rows() > 0 && input.cols() > 0;
 }
 
-static Tensor2D forward_row(const Tensor2D& input, const SoftmaxConfig& config)
+static Tensor forward_row(const Tensor& input, const SoftmaxConfig& config)
 {
-    if (!is_valid_Tensor2D(input))
+    if (!is_valid_tensor_matrix(input))
     {
         return {0, 0, 0.0f};
     }
 
-    Tensor2D output(input.rows(), input.cols());
+    Tensor output(input.rows(), input.cols());
     std::vector<double> expValues(input.size(), 0.0);
 
     const float temperature = config.temperature;
@@ -54,14 +54,14 @@ static Tensor2D forward_row(const Tensor2D& input, const SoftmaxConfig& config)
     return output;
 }
 
-static Tensor2D forward_col(const Tensor2D& input, const SoftmaxConfig& config)
+static Tensor forward_col(const Tensor& input, const SoftmaxConfig& config)
 {
-    if (!is_valid_Tensor2D(input))
+    if (!is_valid_tensor_matrix(input))
     {
         return {0, 0, 0.0f};
     }
 
-    Tensor2D output(input.rows(), input.cols());
+    Tensor output(input.rows(), input.cols());
     std::vector<double> expValues(input.size(), 0.0);
 
     const float temperature = config.temperature;
@@ -95,11 +95,11 @@ static Tensor2D forward_col(const Tensor2D& input, const SoftmaxConfig& config)
     return output;
 }
 
-Tensor2D Softmax::forward(const Tensor2D& input) const
+Tensor Softmax::forward(const Tensor& input) const
 {
-    if (!is_valid_Tensor2D(input))
+    if (!is_valid_tensor_matrix(input))
     {
-        return Tensor2D{0, 0, 0.0f};
+        return Tensor{0, 0, 0.0f};
     }
 
     const SoftmaxConfig& config = this->config();
@@ -112,9 +112,9 @@ Tensor2D Softmax::forward(const Tensor2D& input) const
     return forward_col(input, config);
 }
 
-void Softmax::forward_inplace(Tensor2D& input) const
+void Softmax::forward_inplace(Tensor& input) const
 {
-    Tensor2D temp = forward(input);
+    Tensor temp = forward(input);
     input = temp;
 }
 
@@ -133,7 +133,7 @@ const SoftmaxConfig& Softmax::config() const
     return config_;
 }
 
-Tensor2D softmax(const Tensor2D& input,
+Tensor softmax(const Tensor& input,
                  SoftmaxAxis axis,
                  float epsilon,
                  float temperature)

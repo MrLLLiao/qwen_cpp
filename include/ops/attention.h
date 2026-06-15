@@ -5,6 +5,8 @@
 #ifndef QWEN_CPP_OPS_ATTENTION_H
 #define QWEN_CPP_OPS_ATTENTION_H
 
+#include <cstddef>
+
 #include "tensor.h"
 
 /**
@@ -33,6 +35,21 @@ struct AttentionConfig
      * @brief 是否启用 causal mask（自回归掩码）。
      */
     bool causal{false};
+
+    /**
+     * @brief query 第0行对应的绝对 token 位置，用于带 KV cache 的增量 causal mask。
+     */
+    std::size_t query_position_offset{0};
+
+    /**
+     * @brief RoPE theta；<=0 表示关闭 RoPE。
+     */
+    float rope_theta{0.0f};
+
+    /**
+     * @brief RoPE 缩放因子，Qwen 长上下文扩展时可调。
+     */
+    float rope_scale{1.0f};
 };
 
 /**
@@ -61,10 +78,10 @@ public:
     /**
      * @brief 前向计算，返回新的输出 Tensor。
      */
-    [[nodiscard]] Tensor2D forward(const Tensor2D& query,
-                                   const Tensor2D& key,
-                                   const Tensor2D& value,
-                                   const Tensor2D* additive_mask = nullptr) const;
+    [[nodiscard]] Tensor forward(const Tensor& query,
+                                   const Tensor& key,
+                                   const Tensor& value,
+                                   const Tensor* additive_mask = nullptr) const;
 
     /**
      * @brief 获取当前配置。
@@ -78,10 +95,30 @@ private:
 /**
  * @brief 函数式 API：执行 scaled dot-product attention。
  */
-[[nodiscard]] Tensor2D scaled_dot_product_attention(const Tensor2D& query,
-                                                    const Tensor2D& key,
-                                                    const Tensor2D& value,
-                                                    const Tensor2D* additive_mask = nullptr,
+[[nodiscard]] Tensor scaled_dot_product_attention(const Tensor& query,
+                                                    const Tensor& key,
+                                                    const Tensor& value,
+                                                    const Tensor* additive_mask = nullptr,
                                                     AttentionConfig config = {});
+
+[[nodiscard]] Tensor scaled_dot_product_attention_view(TensorConstView query,
+                                                         TensorConstView key,
+                                                         TensorConstView value,
+                                                         const Tensor* additive_mask = nullptr,
+                                                         AttentionConfig config = {});
+
+/**
+ * @brief Multi-head/GQA attention 输入布局为 [seq, heads * head_dim]。
+ *
+ * Qwen3.x 使用 GQA 时 num_query_heads 可能大于 num_kv_heads，此函数按
+ * query_head / (num_query_heads / num_kv_heads) 映射到 KV head。
+ */
+[[nodiscard]] Tensor grouped_query_attention(const Tensor& query,
+                                               const Tensor& key,
+                                               const Tensor& value,
+                                               std::size_t num_query_heads,
+                                               std::size_t num_kv_heads,
+                                               const Tensor* additive_mask = nullptr,
+                                               AttentionConfig config = {});
 
 #endif // QWEN_CPP_OPS_ATTENTION_H

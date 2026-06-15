@@ -23,16 +23,16 @@ namespace
 
 int main()
 {
-    Tensor2D A(2, 3, 0.0f);
+    Tensor A(2, 3, 0.0f);
     A(0, 0) = 1.0f; A(0, 1) = 2.0f; A(0, 2) = 3.0f;
     A(1, 0) = 4.0f; A(1, 1) = 5.0f; A(1, 2) = 6.0f;
 
-    Tensor2D B(3, 2, 0.0f);
+    Tensor B(3, 2, 0.0f);
     B(0, 0) = 7.0f;  B(0, 1) = 8.0f;
     B(1, 0) = 9.0f;  B(1, 1) = 10.0f;
     B(2, 0) = 11.0f; B(2, 1) = 12.0f;
 
-    const Tensor2D C = matmul(A, B);
+    const Tensor C = matmul(A, B);
 
     expect_true(C.rows() == 2, "C rows should be 2");
     expect_true(C.cols() == 2, "C cols should be 2");
@@ -45,7 +45,7 @@ int main()
     bool thrown = false;
     try
     {
-        const Tensor2D badB(4, 1, 1.0f);
+        const Tensor badB(4, 1, 1.0f);
         static_cast<void>(matmul(A, badB));
     }
     catch (const std::invalid_argument&)

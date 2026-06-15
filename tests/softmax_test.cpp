@@ -21,7 +21,7 @@ namespace
         }
     }
 
-    float row_sum(const Tensor2D& t, size_t row)
+    float row_sum(const Tensor& t, size_t row)
     {
         float sum = 0.0f;
         for (size_t col = 0; col < t.cols(); ++col)
@@ -31,7 +31,7 @@ namespace
         return sum;
     }
 
-    float col_sum(const Tensor2D& t, size_t col)
+    float col_sum(const Tensor& t, size_t col)
     {
         float sum = 0.0f;
         for (size_t row = 0; row < t.rows(); ++row)
@@ -45,11 +45,11 @@ namespace
 int main()
 {
     {
-        Tensor2D logits(2, 3, 0.0f);
+        Tensor logits(2, 3, 0.0f);
         logits(0, 0) = 1.0f; logits(0, 1) = 2.0f; logits(0, 2) = 3.0f;
         logits(1, 0) = 1.0f; logits(1, 1) = 1.0f; logits(1, 2) = 1.0f;
 
-        const Tensor2D probs = softmax(logits, SoftmaxAxis::Row);
+        const Tensor probs = softmax(logits, SoftmaxAxis::Row);
 
         expect_true(probs.rows() == 2 && probs.cols() == 3, "row softmax shape should be 2x3");
         expect_true(nearly_equal(row_sum(probs, 0), 1.0f), "row 0 sum should be 1");
@@ -65,12 +65,12 @@ int main()
     }
 
     {
-        Tensor2D logits(3, 2, 0.0f);
+        Tensor logits(3, 2, 0.0f);
         logits(0, 0) = 1.0f; logits(0, 1) = 2.0f;
         logits(1, 0) = 3.0f; logits(1, 1) = 4.0f;
         logits(2, 0) = 5.0f; logits(2, 1) = 6.0f;
 
-        const Tensor2D probs = softmax(logits, SoftmaxAxis::Col);
+        const Tensor probs = softmax(logits, SoftmaxAxis::Col);
 
         expect_true(nearly_equal(col_sum(probs, 0), 1.0f), "col 0 sum should be 1");
         expect_true(nearly_equal(col_sum(probs, 1), 1.0f), "col 1 sum should be 1");
@@ -85,7 +85,7 @@ int main()
     }
 
     {
-        Tensor2D logits(1, 3, 0.0f);
+        Tensor logits(1, 3, 0.0f);
         logits(0, 0) = 2.0f;
         logits(0, 1) = 4.0f;
         logits(0, 2) = 6.0f;
@@ -100,7 +100,7 @@ int main()
         bool thrown = false;
         try
         {
-            Tensor2D logits(1, 2, 0.0f);
+            Tensor logits(1, 2, 0.0f);
             static_cast<void>(softmax(logits, SoftmaxAxis::Row, 1e-12f, 0.0f));
         }
         catch (const std::invalid_argument&)
@@ -112,7 +112,7 @@ int main()
         thrown = false;
         try
         {
-            Tensor2D logits(1, 2, 0.0f);
+            Tensor logits(1, 2, 0.0f);
             static_cast<void>(softmax(logits, SoftmaxAxis::Row, -1.0f, 1.0f));
         }
         catch (const std::invalid_argument&)

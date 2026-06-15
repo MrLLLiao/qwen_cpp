@@ -10,7 +10,7 @@
 /**
  * @brief Softmax 归一化维度。
  *
- * Tensor2D 仅支持二维：
+ * Tensor 仅支持二维：
  * - Row: 对每一行做 softmax（常用于每个 token 的 logits）
  * - Col: 对每一列做 softmax
  */
@@ -52,12 +52,12 @@ public:
     /**
      * @brief 返回 softmax 后的新 Tensor。
      */
-    [[nodiscard]] Tensor2D forward(const Tensor2D& input) const;
+    [[nodiscard]] Tensor forward(const Tensor& input) const;
 
     /**
      * @brief 对输入 Tensor 原地执行 softmax。
      */
-    void forward_inplace(Tensor2D& input) const;
+    void forward_inplace(Tensor& input) const;
 
     /**
      * @brief 读取当前配置。
@@ -71,7 +71,7 @@ private:
 /**
  * @brief 函数式 API：按指定 axis 执行 softmax。
  */
-[[nodiscard]] Tensor2D softmax(const Tensor2D& input,
+[[nodiscard]] Tensor softmax(const Tensor& input,
                                SoftmaxAxis axis = SoftmaxAxis::Row,
                                float epsilon = 1e-12f,
                                float temperature = 1.0f);
