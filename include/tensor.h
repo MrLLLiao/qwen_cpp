@@ -90,13 +90,6 @@ private:
     std::vector<float> data_{};
 };
 
-class Tensor2D : public Tensor
-{
-public:
-    using Tensor::Tensor;
-    Tensor2D() = default;
-};
-
 struct TensorConstView
 {
     const float* data{nullptr};
