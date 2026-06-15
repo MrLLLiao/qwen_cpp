@@ -13,7 +13,7 @@
    - `cache`
    - `engine` 中的 `prefill/decode` KV 编排
 2. **已经创建目录、头文件、配置和文档，但多数仍为 TODO 骨架的中高层能力**
-   - `model`
+   - `model` 中的 Qwen 风格最小前向骨架
    - `tokenizer`
    - `runtime`
    - `backend`
@@ -40,7 +40,7 @@
 | KV Cache / 分配 / 管理 | 已完成 | `include/cache/*.h`、`src/cache/*.cpp`、对应测试 |
 | Prefill 编排 | 已完成（限 KV 写入编排） | `include/engine/prefill.h`、`src/engine/prefill.cpp`、`tests/prefill_test.cpp` |
 | Decode 编排 | 已完成（限单步 KV 写入编排） | `include/engine/decode.h`、`src/engine/decode.cpp`、`tests/decode_test.cpp` |
-| Model 抽象 | 部分开始，仍以骨架为主 | `include/model/*.h`、`src/model/*.cpp` 已存在，但 `layer/attention` 仍为空壳 |
+| Model 抽象 | 已有最小 Qwen 前向骨架 | `ModelConfig/ModelWeights/RMSNorm/SelfAttention/MLP/TransformerBlock/QwenModel` 已纳入构建与测试 |
 | LayerNorm 等模型必需算子 | 未开始 / 占位 | `include/ops/layernorm.h` 仍为空，`src/ops/` 无实现 |
 | Tokenizer | 已建骨架，未实现 | `include/tokenizer/*`、`src/tokenizer/tokenizer.cpp` |
 | Runtime 封装 | 已建骨架，未实现 | `include/runtime/*`、`src/runtime/*` |
@@ -51,7 +51,7 @@
 | 本地训练 / 微调 | 已有 Python 脚手架，未实现 | `python/training/train_lora.py`、`configs/training/lora_sft.yaml` |
 | 数据治理 | 已有脚手架与文档，未实现 | `python/data_pipeline/prepare_dataset.py`、`docs/datasets/README.md` |
 | 导出链路 | 已有脚手架，未实现 | `python/tools/export_to_gguf.py` |
-| 评测与回归体系 | 部分完成 | C++ 单测已覆盖 core/cache/engine；`tests/unit`/`integration`/`e2e` 目录已建立但无真实用例 |
+| 评测与回归体系 | 部分完成 | C++ 单测已覆盖 tensor/ops/cache/engine/model；CTest labels 已分类；benchmark 入口已建立 |
 | 文档与部署脚本 | 部分完成 | `README.md`、`docs/ARCHITECTURE.md` 与多个 docs 子目录 README 已存在 |
 
 ---
@@ -69,7 +69,7 @@ ctest --test-dir build --output-on-failure
 验证结果：
 
 - `cmake --build build`：成功
-- `ctest --test-dir build --output-on-failure`：**9/9 测试全部通过**
+- `ctest --test-dir build --output-on-failure`：**11/11 测试全部通过**
 
 当前通过的测试：
 
@@ -82,6 +82,8 @@ ctest --test-dir build --output-on-failure
 - `cache-manager-test`
 - `prefill-test`
 - `decode-test`
+- `embedding-test`
+- `model-test`
 
 这说明此前路线图中“`prefill-test` 链接失败、`engine_core` 未链接 `cache_core`”的判断已经**过时**。当前 `CMakeLists.txt` 中：
 
@@ -94,8 +96,8 @@ ctest --test-dir build --output-on-failure
 
 不过需要注意：
 
-- 当前 CMake 只构建 `ops_core`、`cache_core`、`engine_core` 与对应测试
-- `model/runtime/tokenizer/backend/cli/service` 这些新目录虽然已存在，但**尚未纳入构建闭环**
+- 当前 CMake 构建 `ops_core`、`cache_core`、`engine_core`、`model_core`、测试与可选 benchmark
+- `runtime/tokenizer/backend/cli/service` 这些新目录虽然已存在，但**尚未纳入构建闭环**
 - 因此“全量构建成功”目前更准确地说是：**已纳入 CMake 的核心库与测试全量成功**，而不是整个仓库的功能模块都已可编译可运行
 
 ---
@@ -108,7 +110,7 @@ ctest --test-dir build --output-on-failure
 
 以下能力已具备独立可用性，并有测试支撑：
 
-- `Tensor2D`
+- `Tensor`
   - 文件：`include/tensor.h`、`src/tensor.cpp`
   - 能力：构造、访问、转置、填充、最大值读取、边界校验
   - 测试：`tests/tensor_test.cpp`
@@ -123,7 +125,7 @@ ctest --test-dir build --output-on-failure
 
 - `attention`
   - 文件：`include/ops/attention.h`、`src/ops/attention.cpp`
-  - 能力：支持 scaling、manual scale、causal、additive mask
+  - 能力：支持 scaling、manual scale、causal、additive mask、GQA、RoPE、增量 query offset
   - 测试：`tests/attention_test.cpp`
 
 **判断**：这是当前仓库最稳定、最可信的部分，已达到“教学/实验型底层模块可复用”的质量水平。
@@ -134,7 +136,7 @@ ctest --test-dir build --output-on-failure
 
 - `KVCache`
   - 文件：`include/cache/KVCache.h`、`src/cache/KVCache.cpp`
-  - 能力：多层 KV 追加、按层查询、token 计数、容量约束
+  - 能力：多层 KV 追加、按层查询、token 计数、容量约束、容量预留与利用率统计
 
 - `CacheAllocator`
   - 文件：`include/cache/CacheAllocator.h`、`src/cache/CacheAllocator.cpp`
@@ -185,9 +187,9 @@ ctest --test-dir build --output-on-failure
 
 ## 2. 已部分实现但未闭环的能力
 
-### 2.1 model / tokenizer / runtime / backend 已经创建骨架，但大多仍为 TODO
+### 2.1 model 已纳入核心构建；tokenizer / runtime / backend 仍是骨架
 
-相比旧路线图，目前代码仓库已经补入了大量中高层骨架：
+相比旧路线图，目前代码仓库已经补入了大量中高层骨架，并把 `model_core` 纳入了构建与测试闭环：
 
 #### model
 
@@ -198,17 +200,24 @@ ctest --test-dir build --output-on-failure
 - `include/model/transformer_block.h`
 - `include/model/layer.h`
 - `include/model/attention.h`
+- `include/model/mlp.h`
+- `include/model/rms_norm.h`
+- `include/model/self-attention.h`
+- `include/model/model.h`
 - `src/model/model_weights.cpp`
 - `src/model/transformer_block.cpp`
 - `src/model/attention.cpp`
+- `src/model/mlp.cpp`
+- `src/model/rms_norm.cpp`
+- `src/model/self-attention.cpp`
+- `src/model/model.cpp`
 
 现状判断：
 
-- `ModelConfig`：已有最小字段骨架
-- `ModelWeights`：已有接口但始终返回 `false`
-- `TransformerBlock`：已有类与 `forward()` 占位
-- `Layer` / `Attention`：仍为空壳
-- `src/model/attention.cpp`：空文件
+- `ModelConfig`：已包含 Qwen/GQA 关键字段与 shape 校验
+- `ModelWeights`：已具备 layer 权重容器、ready/shape 校验和手工填充路径
+- `RMSNorm`、`SelfAttention`、`MLP`、`TransformerBlock`、`QwenModel`：已具备最小前向实现并通过 `model-test`
+- `src/model/attention.cpp`：仍保留为空壳/兼容文件，真实 attention 路径在 `SelfAttention + ops::grouped_query_attention`
 
 #### tokenizer
 
@@ -254,7 +263,7 @@ ctest --test-dir build --output-on-failure
 - 但 `load_model()`、`create_context()` 目前均返回 `false`
 - 尚未引入真实 `llama.cpp` 依赖或任何 GGUF 解析/调用逻辑
 
-**结论**：阶段 1 已经不是“未开始”，而是**骨架已落地、实现未闭环**。
+**结论**：阶段 1 已经不是“未开始”。`model` 的最小 C++ 前向路径已落地，但 `tokenizer/runtime/backend/cli/service` 仍未形成真实推理闭环。
 
 ### 2.2 CLI / 服务层已开始搭脚手架，但没有产品可用入口
 
@@ -485,7 +494,7 @@ tests/
   - `BackendAdapter` 的 prefill/decode/generate 能力定义
   - runtime 与 tokenizer 的错误返回策略
 - 明确新旧模块如何衔接：
-  - 旧 `Tensor2D/KVCache/PrefillEngine/DecodeEngine`
+  - `Tensor/KVCache/PrefillEngine/DecodeEngine`
   - 新 `mini_llm::{model,runtime,backend}`
 
 ---
@@ -601,13 +610,17 @@ tests/
 
 ### 当前状态评估
 
-**未开始。**
+**已开始（限核心算子与 KV 路径）。**
 
 说明：
 
-- 当前只有底层 cache 与 KV 编排测试
-- 尚无真实模型推理闭环
-- 因此任何性能优化都应在阶段 3/4 打通后再开始
+- `Tensor` 已增加 N 维 shape/stride、row/span/data/reserve/append_rows 等低拷贝接口
+- `matmul` 已增加 `matmul_into`
+- `attention` 已改为逐行 streaming，避免完整 attention score/prob 中间矩阵
+- `KVCache` 已支持预分配、append 复用与利用率统计
+- 已新增 `qwen_decode_bench`，覆盖 GQA attention + RoPE + 增量 causal mask + KVCache 追加/容量利用率
+
+仍需等待真实模型推理闭环后，再做 SIMD、量化、线程池、内存 arena 与批调度优化。
 
 ---
 
@@ -681,8 +694,10 @@ tests/
 
 已完成：
 
-- C++ 核心单测覆盖 `tensor/ops/cache/engine`
+- C++ 核心单测覆盖 `tensor/ops/cache/engine/model`
 - `tests/unit`、`tests/integration`、`tests/e2e` 目录已建立
+- CTest labels 已区分 `unit`、`integration`、`tensor`、`ops`、`cache`、`engine`、`model`
+- `qwen_decode_bench` 已提供核心 decode 路径基准入口
 
 未完成：
 
@@ -697,7 +712,7 @@ tests/
 
 阶段 9 的现状应从“只有底层单测”更新为：
 
-> **核心 C++ 单测已形成一条可执行回归线，但还没有覆盖到新引入的上层骨架模块。**
+> **核心 C++ 单测已形成一条覆盖 tensor/ops/cache/engine/model 的可执行回归线，但还没有覆盖 tokenizer/runtime/backend、真实 GGUF 加载和 e2e 生成。**
 
 ---
 

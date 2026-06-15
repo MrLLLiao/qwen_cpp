@@ -1,11 +1,12 @@
 # qwen_cpp
 
 一个面向 Transformer 推理路径的 C++ 学习型工程，当前主线聚焦：
-- `Tensor2D` 基础张量容器
+- `Tensor` 基础 N 维张量容器
 - `ops` 纯计算算子（`matmul / softmax / attention`）
 - `cache` KV 缓存与分配管理
 - `engine` 中的 KV 编排（`prefill / decode`）
-- 基础单测（可执行测试）
+- `model` 中的 Qwen 风格 RMSNorm / GQA Attention / SwiGLU MLP / TransformerBlock 骨架
+- 可按 label 分类运行的 CTest 测试
 
 > 目标：以 `tensor -> ops -> cache -> engine -> model` 为学习主线，逐步理解 Transformer 推理路径中的关键抽象与边界。
 
@@ -22,8 +23,7 @@
   - `ops/`：无状态算子实现
   - `cache/`：KVCache / CacheManager / CacheAllocator
   - `engine/`：已实现的 KV 编排逻辑
-  - `model/`：学习阶段的模型组件与词表实验
-  - `tests/`：可执行单测
+- `tests/`：CTest 可执行测试与分类说明
 
 ## 主线与支线
 
@@ -46,14 +46,19 @@ cmake --build build
 ### 2) 运行测试
 
 ```powershell
-./build/tensor-test.exe
-./build/matmul-test.exe
-./build/softmax-test.exe
-./build/attention-test.exe
-./build/kvcache-test.exe
-./build/cache-allocator-test.exe
-./build/cache-manager-test.exe
+ctest --test-dir build --output-on-failure
+ctest --test-dir build -L unit --output-on-failure
+ctest --test-dir build -L integration --output-on-failure
 ```
+
+### 3) 运行核心路径基准
+
+```powershell
+.\build\benchmarks\qwen_decode_bench.exe
+.\build\benchmarks\qwen_decode_bench.exe --prompt 128 --decode 64 --layers 4 --q-heads 8 --kv-heads 2 --head-dim 16
+```
+
+该基准覆盖 GQA attention + RoPE + 增量 causal mask + KVCache 追加/容量利用率，用于观察 decode 路径的吞吐趋势。
 
 ---
 
@@ -80,10 +85,10 @@ cmake --build build
 
 - ✅ `ops` 和 `cache` 已有可运行实现与测试
 - ✅ `engine` 已完成 `prefill / decode` 的 KV 编排与测试
-- 🚧 `model` 处于学习扩展阶段，完成度不均
+- ✅ `model` 已具备最小可编译 Qwen block/model 前向骨架与测试
 - 🚧 `tokenizer / runtime / backend / cli / service` 为实验支线脚手架
 
 建议下一步：
-1. 在 `model` 中落地最小 `Layer / Block` 抽象。
-2. 补一条从 `model` 到 `engine` 的教学型集成用例。
+1. 补一条从 `model` 到 `engine/cache` 的教学型集成用例。
+2. 接入真实 GGUF/llama.cpp backend 或明确自研权重加载格式。
 3. 继续把实验支线与学习主线的边界写清楚，避免文档漂移。

@@ -29,7 +29,7 @@ ops    (纯计算)
 
 补充说明：
 - 当前仓库中 `engine` 的 KV 编排已落地，不再只是占位
-- 当前仓库中 `model` 仍处于学习扩展阶段，允许少量实验性模块存在
+- 当前仓库中 `model` 已具备 Qwen 风格的最小前向骨架，仍处于学习扩展阶段
 
 ---
 
@@ -41,6 +41,7 @@ ops    (纯计算)
 - 提供确定性计算：`matmul`、`softmax`、`attention` 等。
 - 接受输入张量与配置，返回输出张量。
 - 进行必要的输入合法性校验（shape、参数范围）。
+- `attention` 支持 GQA、RoPE、增量 causal mask，并采用逐行 streaming 方式避免保存完整 attention score/prob 矩阵。
 
 **非职责**
 - 不保存跨 step 的缓存。
@@ -58,7 +59,8 @@ ops    (纯计算)
 **职责**
 - 管理 KV 状态：初始化、追加、查询、释放。
 - 管理内存资源池与容量约束（max_tokens / max_buffers）。
-- 提供按层、按区间的只读视图（例如 `Tensor2DView`）。
+- 提供按层、按区间的只读视图（例如 `TensorView`）。
+- 维护预分配容量与利用率指标，避免 decode 过程中频繁重建历史 KV 张量。
 
 **非职责**
 - 不做 attention 数学计算。
@@ -99,6 +101,7 @@ ops    (纯计算)
 - 描述模型组件及层级关系（Layer / Block / AttentionLayer）。
 - 定义参数访问与前向接口语义。
 - 屏蔽底层实现差异，为 engine 提供稳定 API。
+- 当前已实现 `ModelConfig`、`ModelWeights`、`RMSNorm`、GQA `SelfAttention`、SwiGLU `MLP`、`TransformerBlock` 与 `QwenModel` 最小前向骨架。
 
 **非职责**
 - 不直接实现通用算子（交给 ops）。
@@ -108,7 +111,7 @@ ops    (纯计算)
 - `include/model/*`
 - `src/model/*`
 
-> 当前状态：学习扩展阶段；部分模块已实现，部分仍为占位。
+> 当前状态：学习扩展阶段；核心 block/model 前向已可编译可测，真实 GGUF 加载、tokenizer、sampling 与 runtime 闭环尚未接通。
 
 ---
 
@@ -139,14 +142,17 @@ ops    (纯计算)
 
 ### 4.1 固定契约（当前实现）
 
-- `Tensor2D`
+- `Tensor`
   - 默认构造为空张量（`rows=0, cols=0, size=0`）。
   - `at/operator()` 越界统一抛 `std::out_of_range`。
   - `max_value()` 在空张量上抛 `std::runtime_error`。
+  - 以连续 row-major 布局保存 N 维数据，二维兼容接口直接由 `Tensor` 提供。
 
 - `Attention`
   - `additive_mask` 形状必须为 `[query.rows(), key.rows()]`。
   - 先叠加 `additive_mask`，再应用 `causal` 上三角屏蔽。
+  - GQA 输入布局固定为 `[seq, heads * head_dim]`，`num_attention_heads` 必须能被 `num_key_value_heads` 整除。
+  - 带 KV cache 的增量 causal attention 必须设置 `query_position_offset`。
   - 非法配置（如 `manual_scale == 0`、`softmax_epsilon < 0`）抛 `std::invalid_argument`。
 
 - `KVCache::append`
@@ -155,12 +161,18 @@ ops    (纯计算)
   - `cols` 必须等于 `num_heads * head_dim`。
   - 追加后 token 不得超过 `max_tokens`。
   - `total_token_count()` 语义固定为“缓存序列长度”（各层一致时返回该值；不一致抛异常）。
+  - `reserve_tokens` 只影响底层容量预留，不改变逻辑 token 数。
+
+- `ModelConfig`
+  - `hidden_size` 必须能被 `num_attention_heads` 整除。
+  - `num_attention_heads` 必须能被 `num_key_value_heads` 整除。
+  - `rms_norm_eps`、`rope_theta`、`rope_scale` 必须为正数。
 
 ---
 
 ## 5. 演进建议
 
-1. 定义 `model` 最小可用接口（如 `Layer::forward`，`TransformerBlock`）。
-2. 补一个教学型集成用例，把 `model` 与 `engine` 的边界通过测试固定下来。
-3. 为实验支线单独补一页说明，避免和学习主线混淆。
-4. 若后续引入并行/异步，仍保持本职责边界不变。
+1. 补一个教学型集成用例，把 `model` 与 `engine/cache` 的边界通过测试固定下来。
+2. 接入真实权重加载格式（GGUF/manifest），避免 `ModelWeights` 长期停留在手工填充。
+3. 为 tokenizer/runtime/backend 实验支线单独补一页说明，避免和学习主线混淆。
+4. 若后续引入并行/异步、SIMD 或 arena allocator，仍保持本职责边界不变。

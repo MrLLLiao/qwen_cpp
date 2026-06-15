@@ -3,3 +3,5 @@ cmake-build-debug
 data
 .continue
 build
+.code-review-graph
+graphify-out
