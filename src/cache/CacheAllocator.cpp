@@ -36,7 +36,7 @@ size_t CacheAllocator::free_buffers() const
     return max_buffers_ > used_buffers_ ? (max_buffers_ - used_buffers_) : 0;
 }
 
-Tensor2D CacheAllocator::allocate(const AllocationSpec& spec)
+Tensor CacheAllocator::allocate(const AllocationSpec& spec)
 {
     if (spec.cols == 0 || spec.rows == 0)
     {
@@ -50,7 +50,7 @@ Tensor2D CacheAllocator::allocate(const AllocationSpec& spec)
     ShapeKey k{spec.rows, spec.cols};
     auto& bucket = free_pool_[k];
 
-    Tensor2D out;
+    Tensor out;
     if (!bucket.empty())
     {
         out = bucket.back();
@@ -58,14 +58,14 @@ Tensor2D CacheAllocator::allocate(const AllocationSpec& spec)
     }
     else
     {
-        out = Tensor2D(spec.rows, spec.cols);
+        out = Tensor(spec.rows, spec.cols);
     }
 
     ++ used_buffers_;
     return out;
 }
 
-std::vector<Tensor2D> CacheAllocator::allocate_batch(const AllocationSpec& spec)
+std::vector<Tensor> CacheAllocator::allocate_batch(const AllocationSpec& spec)
 {
     if (spec.rows == 0 || spec.cols == 0)
     {
@@ -82,7 +82,7 @@ std::vector<Tensor2D> CacheAllocator::allocate_batch(const AllocationSpec& spec)
         throw std::bad_alloc();
     }
 
-    std::vector<Tensor2D> out;
+    std::vector<Tensor> out;
     out.reserve(spec.count);
 
     for (size_t i = 0; i < spec.count; ++i)
@@ -93,7 +93,7 @@ std::vector<Tensor2D> CacheAllocator::allocate_batch(const AllocationSpec& spec)
     return out;
 }
 
-void CacheAllocator::release(const Tensor2D& buffer)
+void CacheAllocator::release(const Tensor& buffer)
 {
     if (buffer.cols() == 0 || buffer.rows() == 0)
     {

@@ -21,12 +21,12 @@ void test_allocate_release_lifecycle()
     CacheAllocator allocator(2);
     CacheAllocator::AllocationSpec spec{2, 3, 1};
 
-    const Tensor2D a = allocator.allocate(spec);
+    const Tensor a = allocator.allocate(spec);
     expect_true(a.rows() == 2 && a.cols() == 3, "allocate should return requested shape");
     expect_true(allocator.used_buffers() == 1, "used_buffers should increase after allocate");
     expect_true(allocator.free_buffers() == 1, "free_buffers should decrease after allocate");
 
-    const Tensor2D b = allocator.allocate(spec);
+    const Tensor b = allocator.allocate(spec);
     expect_true(b.rows() == 2 && b.cols() == 3, "second allocate should return requested shape");
     expect_true(allocator.used_buffers() == 2, "used_buffers should be 2 after second allocate");
 
@@ -44,7 +44,7 @@ void test_allocate_release_lifecycle()
     allocator.release(a);
     expect_true(allocator.used_buffers() == 1, "used_buffers should decrease after release");
 
-    const Tensor2D c = allocator.allocate(spec);
+    const Tensor c = allocator.allocate(spec);
     expect_true(c.rows() == 2 && c.cols() == 3, "re-allocate should still return requested shape");
     expect_true(allocator.used_buffers() == 2, "used_buffers should return to 2 after re-allocate");
 }
@@ -117,7 +117,7 @@ void test_failure_paths()
     thrown = false;
     try
     {
-        allocator.release(Tensor2D{});
+        allocator.release(Tensor{});
     }
     catch (const std::invalid_argument&)
     {
@@ -128,7 +128,7 @@ void test_failure_paths()
     thrown = false;
     try
     {
-        allocator.release(Tensor2D(1, 1, 0.0F));
+        allocator.release(Tensor(1, 1, 0.0F));
     }
     catch (const std::logic_error&)
     {

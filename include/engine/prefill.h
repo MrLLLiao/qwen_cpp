@@ -11,7 +11,7 @@
 
 #include "tensor.h"
 
-class Tensor2D;
+class Tensor;
 class KVCache;
 class CacheManager;
 
@@ -35,8 +35,8 @@ class CacheManager;
 struct PrefillLayerKV
 {
     size_t layer_idx{0};          ///< 目标层索引
-    const Tensor2D* key{nullptr}; ///< 本层 Key 张量（可为空）
-    const Tensor2D* value{nullptr}; ///< 本层 Value 张量（可为空）
+    const Tensor* key{nullptr}; ///< 本层 Key 张量（可为空）
+    const Tensor* value{nullptr}; ///< 本层 Value 张量（可为空）
 };
 
 /**

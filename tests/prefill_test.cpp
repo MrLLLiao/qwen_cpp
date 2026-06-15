@@ -25,11 +25,11 @@ bool nearly_equal(const float a, const float b)
     return std::fabs(a - b) < kEps;
 }
 
-Tensor2D make_tensor(std::initializer_list<std::initializer_list<float>> rows)
+Tensor make_tensor(std::initializer_list<std::initializer_list<float>> rows)
 {
     const size_t r = rows.size();
     const size_t c = rows.begin()->size();
-    Tensor2D t(r, c, 0.0F);
+    Tensor t(r, c, 0.0F);
 
     size_t i = 0;
     for (const auto& row : rows)
@@ -60,11 +60,11 @@ void test_append_prefill_kv_basic_and_skip_null_layer()
 {
     KVCache cache(KVCache::Config{2, 2, 2, 4});
 
-    const Tensor2D key = make_tensor({
+    const Tensor key = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F},
         {5.0F, 6.0F, 7.0F, 8.0F}
     });
-    const Tensor2D value = make_tensor({
+    const Tensor value = make_tensor({
         {10.0F, 20.0F, 30.0F, 40.0F},
         {50.0F, 60.0F, 70.0F, 80.0F}
     });
@@ -84,7 +84,7 @@ void test_append_prefill_kv_basic_and_skip_null_layer()
 void test_append_prefill_kv_invalid_pair_throws()
 {
     KVCache cache(KVCache::Config{2, 2, 2, 4});
-    const Tensor2D key = make_tensor({
+    const Tensor key = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F}
     });
 
@@ -105,19 +105,19 @@ void test_prefill_engine_run_success()
     CacheManager manager = make_configured_manager();
     manager.create_cache("session-a");
 
-    const Tensor2D k0 = make_tensor({
+    const Tensor k0 = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F},
         {5.0F, 6.0F, 7.0F, 8.0F}
     });
-    const Tensor2D v0 = make_tensor({
+    const Tensor v0 = make_tensor({
         {10.0F, 20.0F, 30.0F, 40.0F},
         {50.0F, 60.0F, 70.0F, 80.0F}
     });
-    const Tensor2D k1 = make_tensor({
+    const Tensor k1 = make_tensor({
         {0.1F, 0.2F, 0.3F, 0.4F},
         {0.5F, 0.6F, 0.7F, 0.8F}
     });
-    const Tensor2D v1 = make_tensor({
+    const Tensor v1 = make_tensor({
         {1.1F, 1.2F, 1.3F, 1.4F},
         {1.5F, 1.6F, 1.7F, 1.8F}
     });
@@ -148,10 +148,10 @@ void test_prefill_engine_run_empty_or_missing_cache()
     const PrefillResult empty_req_result = engine.run(PrefillRequest{});
     expect_true(empty_req_result.appended_tokens == 0, "empty request should return zero appended tokens");
 
-    const Tensor2D k = make_tensor({
+    const Tensor k = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F}
     });
-    const Tensor2D v = make_tensor({
+    const Tensor v = make_tensor({
         {5.0F, 6.0F, 7.0F, 8.0F}
     });
 
@@ -171,10 +171,10 @@ void test_prefill_engine_run_validation_errors()
     manager.create_cache("session-b");
     PrefillEngine engine(manager);
 
-    const Tensor2D k = make_tensor({
+    const Tensor k = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F}
     });
-    const Tensor2D v = make_tensor({
+    const Tensor v = make_tensor({
         {5.0F, 6.0F, 7.0F, 8.0F}
     });
 
@@ -199,11 +199,11 @@ void test_prefill_engine_run_validation_errors()
     thrown = false;
     try
     {
-        const Tensor2D k2 = make_tensor({
+        const Tensor k2 = make_tensor({
             {1.0F, 2.0F, 3.0F, 4.0F},
             {5.0F, 6.0F, 7.0F, 8.0F}
         });
-        const Tensor2D v2 = make_tensor({
+        const Tensor v2 = make_tensor({
             {9.0F, 10.0F, 11.0F, 12.0F},
             {13.0F, 14.0F, 15.0F, 16.0F}
         });

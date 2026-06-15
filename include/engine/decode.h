@@ -11,7 +11,7 @@
 
 #include "tensor.h"
 
-class Tensor2D;
+class Tensor;
 class KVCache;
 class CacheManager;
 
@@ -36,8 +36,8 @@ class CacheManager;
 struct DecodeLayerKV
 {
     size_t layer_idx{0};            ///< 目标层索引
-    const Tensor2D* key{nullptr};   ///< 本层当前步 Key 张量（通常为单 token）
-    const Tensor2D* value{nullptr}; ///< 本层当前步 Value 张量（通常为单 token）
+    const Tensor* key{nullptr};   ///< 本层当前步 Key 张量（通常为单 token）
+    const Tensor* value{nullptr}; ///< 本层当前步 Value 张量（通常为单 token）
 };
 
 /**

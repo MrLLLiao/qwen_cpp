@@ -23,9 +23,9 @@
 class KVCache final
 {
 public:
-    struct Tensor2DView
+    struct TensorView
     {
-        const Tensor2D* tensor{nullptr};
+        const Tensor* tensor{nullptr};
         size_t row_offset{0};
         size_t row_count{0};
 
@@ -49,6 +49,7 @@ public:
         size_t num_heads{0};     ///< 多头注意力的头数
         size_t head_dim{0};      ///< 每个注意力头的维度
         size_t max_tokens{0};    ///< 最大支持的缓存token数
+        size_t reserve_tokens{0}; ///< 预留容量；0 表示使用 max_tokens
     };
 
 public:
@@ -98,6 +99,10 @@ public:
      * @throws std::out_of_range 当layer_idx超出范围时抛出异常
      */
     [[nodiscard]] bool has_layer(size_t layer_idx) const;
+    [[nodiscard]] size_t capacity() const;
+    [[nodiscard]] size_t used_tokens(size_t layer_idx) const;
+    [[nodiscard]] size_t utilization(size_t layer_idx) const;
+    [[nodiscard]] size_t total_capacity() const;
 
     /**
      * @brief 向指定层追加Key和Value张量
@@ -118,7 +123,7 @@ public:
      * @throws std::invalid_argument 当输入形状不合法时抛出异常
      * @throws std::runtime_error 当追加后超过max_tokens限制时抛出异常
      */
-    void append(size_t layer_idx, const Tensor2D& key, const Tensor2D& value);
+    void append(size_t layer_idx, const Tensor& key, const Tensor& value);
 
     /**
      * @brief 获取指定层的Key张量
@@ -126,7 +131,7 @@ public:
      * @return Key张量的常引用
      * @throws std::out_of_range 当layer_idx超出范围时抛出异常
      */
-    [[nodiscard]] const Tensor2D& key(size_t layer_idx) const;
+    [[nodiscard]] const Tensor& key(size_t layer_idx) const;
 
     /**
      * @brief 获取指定层的Value张量
@@ -134,7 +139,7 @@ public:
      * @return Value张量的常引用
      * @throws std::out_of_range 当layer_idx超出范围时抛出异常
      */
-    [[nodiscard]] const Tensor2D& value(size_t layer_idx) const;
+    [[nodiscard]] const Tensor& value(size_t layer_idx) const;
 
     /**
      * @brief 获取指定层Key张量的行视图（零拷贝）
@@ -143,8 +148,8 @@ public:
      * @param row_count 视图行数；传kAllRows表示直到末尾
      * @return Key张量的只读视图
      */
-    [[nodiscard]] Tensor2DView key_view(size_t layer_idx, size_t row_offset = 0,
-                                        size_t row_count = kAllRows) const;
+    [[nodiscard]] TensorView key_view(size_t layer_idx, size_t row_offset = 0,
+                                      size_t row_count = kAllRows) const;
 
     /**
      * @brief 获取指定层Value张量的行视图（零拷贝）
@@ -153,8 +158,8 @@ public:
      * @param row_count 视图行数；传kAllRows表示直到末尾
      * @return Value张量的只读视图
      */
-    [[nodiscard]] Tensor2DView value_view(size_t layer_idx, size_t row_offset = 0,
-                                          size_t row_count = kAllRows) const;
+    [[nodiscard]] TensorView value_view(size_t layer_idx, size_t row_offset = 0,
+                                        size_t row_count = kAllRows) const;
 
     /**
      * @brief 获取指定层已缓存的token数量
@@ -174,12 +179,18 @@ public:
      * @throws std::runtime_error 当不同层 token_count 不一致时抛出异常
      */
     [[nodiscard]] size_t total_token_count() const;
+    [[nodiscard]] TensorView key_slot_view(size_t layer_idx, size_t row_index) const;
+    [[nodiscard]] TensorView value_slot_view(size_t layer_idx, size_t row_index) const;
 
 private:
+    void ensure_capacity_for(size_t layer_idx, size_t incoming_tokens);
+    void append_in_place(size_t layer_idx, const Tensor& key, const Tensor& value);
+
     Config config_{};                          ///< 缓存配置参数
-    std::vector<Tensor2D> keys_{};             ///< 各层Key张量存储（size = num_layers）
-    std::vector<Tensor2D> values_{};           ///< 各层Value张量存储（size = num_layers）
+    std::vector<Tensor> keys_{};             ///< 各层Key张量存储（size = num_layers）
+    std::vector<Tensor> values_{};           ///< 各层Value张量存储（size = num_layers）
     std::vector<size_t> token_counts_{};       ///< 各层已缓存的token数量（size = num_layers）
+    std::vector<size_t> reserved_tokens_{};    ///< 各层预分配容量
     bool initialized_{false};                  ///< 初始化标记
 };
 

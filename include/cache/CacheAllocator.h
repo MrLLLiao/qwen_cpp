@@ -82,7 +82,7 @@ public:
      * @return 分配的2D张量
      * @throws std::bad_alloc 当超过最大缓冲区限制时抛出异常
      */
-    [[nodiscard]] Tensor2D allocate(const AllocationSpec& spec);
+    [[nodiscard]] Tensor allocate(const AllocationSpec& spec);
 
     /**
      * @brief 批量分配缓存张量
@@ -90,13 +90,13 @@ public:
      * @return 分配的2D张量向量
      * @throws std::bad_alloc 当超过最大缓冲区限制时抛出异常
      */
-    [[nodiscard]] std::vector<Tensor2D> allocate_batch(const AllocationSpec& spec);
+    [[nodiscard]] std::vector<Tensor> allocate_batch(const AllocationSpec& spec);
 
     /**
      * @brief 释放缓存张量
      * @param buffer 待释放的张量，将被标记为可用
      */
-    void release(const Tensor2D& buffer);
+    void release(const Tensor& buffer);
 
 private:
     struct ShapeKey
@@ -122,7 +122,7 @@ private:
     size_t max_buffers_{0};     ///< 最大缓冲区容量限制
     size_t used_buffers_{0};    ///< 当前已使用的缓冲区数
 
-    std::unordered_map<ShapeKey, std::vector<Tensor2D>, ShapeKeyHash> free_pool_;
+    std::unordered_map<ShapeKey, std::vector<Tensor>, ShapeKeyHash> free_pool_;
 };
 
 #endif //QWEN_CPP_CACHEALLOCATOR_H

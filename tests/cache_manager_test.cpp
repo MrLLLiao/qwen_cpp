@@ -174,7 +174,7 @@ void test_cache_accessors_and_allocator_reset()
     expect_true(thrown, "cache(const) should throw for missing id");
 
     auto& allocator = manager.allocator();
-    const Tensor2D temp = allocator.allocate(CacheAllocator::AllocationSpec{1, 1, 1});
+    const Tensor temp = allocator.allocate(CacheAllocator::AllocationSpec{1, 1, 1});
     expect_true(allocator.used_buffers() == 1, "allocator should report used buffer after allocate");
 
     manager.clear();

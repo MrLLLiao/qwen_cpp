@@ -24,11 +24,11 @@ void expect_true(const bool condition, const char* message)
     }
 }
 
-Tensor2D make_tensor(std::initializer_list<std::initializer_list<float>> rows)
+Tensor make_tensor(std::initializer_list<std::initializer_list<float>> rows)
 {
     const size_t r = rows.size();
     const size_t c = rows.begin()->size();
-    Tensor2D t(r, c, 0.0F);
+    Tensor t(r, c, 0.0F);
 
     size_t i = 0;
     for (const auto& row : rows)
@@ -127,11 +127,11 @@ void test_append_and_growth()
     KVCache::Config cfg{1, 2, 2, 6}; // cols should be num_heads * head_dim = 4
     cache.reset(cfg);
 
-    const Tensor2D key1 = make_tensor({
+    const Tensor key1 = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F},
         {5.0F, 6.0F, 7.0F, 8.0F}
     });
-    const Tensor2D val1 = make_tensor({
+    const Tensor val1 = make_tensor({
         {10.0F, 20.0F, 30.0F, 40.0F},
         {50.0F, 60.0F, 70.0F, 80.0F}
     });
@@ -144,10 +144,10 @@ void test_append_and_growth()
     expect_true(nearly_equal(cache.key(0)(1, 2), 7.0F), "key content after first append mismatch");
     expect_true(nearly_equal(cache.value(0)(0, 3), 40.0F), "value content after first append mismatch");
 
-    const Tensor2D key2 = make_tensor({
+    const Tensor key2 = make_tensor({
         {9.0F, 10.0F, 11.0F, 12.0F}
     });
-    const Tensor2D val2 = make_tensor({
+    const Tensor val2 = make_tensor({
         {90.0F, 100.0F, 110.0F, 120.0F}
     });
 
@@ -171,7 +171,7 @@ void test_append_validation()
     KVCache cache;
     cache.reset(KVCache::Config{1, 2, 2, 2});
 
-    const Tensor2D good = make_tensor({
+    const Tensor good = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F},
         {5.0F, 6.0F, 7.0F, 8.0F}
     });
@@ -190,7 +190,7 @@ void test_append_validation()
     thrown = false;
     try
     {
-        const Tensor2D bad_value = make_tensor({
+        const Tensor bad_value = make_tensor({
             {1.0F, 2.0F, 3.0F, 4.0F}
         });
         cache.append(0, good, bad_value);
@@ -204,7 +204,7 @@ void test_append_validation()
     thrown = false;
     try
     {
-        const Tensor2D bad_cols = make_tensor({
+        const Tensor bad_cols = make_tensor({
             {1.0F, 2.0F, 3.0F},
             {4.0F, 5.0F, 6.0F}
         });
@@ -221,7 +221,7 @@ void test_append_validation()
     thrown = false;
     try
     {
-        const Tensor2D one_more = make_tensor({
+        const Tensor one_more = make_tensor({
             {9.0F, 10.0F, 11.0F, 12.0F}
         });
         cache.append(0, one_more, one_more);
@@ -238,7 +238,7 @@ void test_total_token_count_contract()
     KVCache cache;
     cache.reset(KVCache::Config{2, 2, 2, 8});
 
-    const Tensor2D one_token = make_tensor({
+    const Tensor one_token = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F}
     });
 
@@ -264,29 +264,29 @@ void test_views()
     KVCache cache;
     cache.reset(KVCache::Config{1, 2, 2, 8});
 
-    const Tensor2D key = make_tensor({
+    const Tensor key = make_tensor({
         {1.0F, 2.0F, 3.0F, 4.0F},
         {5.0F, 6.0F, 7.0F, 8.0F},
         {9.0F, 10.0F, 11.0F, 12.0F}
     });
-    const Tensor2D val = make_tensor({
+    const Tensor val = make_tensor({
         {10.0F, 20.0F, 30.0F, 40.0F},
         {50.0F, 60.0F, 70.0F, 80.0F},
         {90.0F, 100.0F, 110.0F, 120.0F}
     });
     cache.append(0, key, val);
 
-    const KVCache::Tensor2DView kv = cache.key_view(0, 1, KVCache::kAllRows);
+    const KVCache::TensorView kv = cache.key_view(0, 1, KVCache::kAllRows);
     expect_true(!kv.empty(), "key_view should not be empty");
     expect_true(kv.rows() == 2 && kv.cols() == 4, "key_view shape mismatch");
     expect_true(nearly_equal(kv(0, 0), 5.0F), "key_view first element mismatch");
     expect_true(nearly_equal(kv(1, 3), 12.0F), "key_view last element mismatch");
 
-    const KVCache::Tensor2DView vv = cache.value_view(0, 2, 1);
+    const KVCache::TensorView vv = cache.value_view(0, 2, 1);
     expect_true(vv.rows() == 1 && vv.cols() == 4, "value_view shape mismatch");
     expect_true(nearly_equal(vv(0, 2), 110.0F), "value_view element mismatch");
 
-    const KVCache::Tensor2DView empty_tail = cache.key_view(0, 3, KVCache::kAllRows);
+    const KVCache::TensorView empty_tail = cache.key_view(0, 3, KVCache::kAllRows);
     expect_true(empty_tail.empty(), "view at row_offset==rows should be empty");
 
     bool thrown = false;
@@ -300,6 +300,34 @@ void test_views()
     }
     expect_true(thrown, "key_view should throw when row_offset > rows");
 }
+
+void test_preallocation_metrics_keep_logical_shape()
+{
+    KVCache cache;
+    cache.reset(KVCache::Config{1, 2, 2, 8, 8});
+
+    expect_true(cache.key(0).rows() == 0 && cache.key(0).cols() == 0,
+                "reset should keep logical tensors empty before first append");
+    expect_true(cache.capacity() == 8, "capacity should report configured max tokens");
+    expect_true(cache.used_tokens(0) == 0, "used_tokens should be zero initially");
+    expect_true(cache.utilization(0) == 0, "utilization should be zero initially");
+
+    const Tensor one = make_tensor({
+        {1.0F, 2.0F, 3.0F, 4.0F}
+    });
+    cache.append(0, one, one);
+
+    expect_true(cache.key(0).rows() == 1 && cache.key(0).cols() == 4,
+                "append should grow logical rows by appended tokens only");
+    expect_true(cache.key(0).capacity() >= 8 * 4,
+                "append should reserve enough underlying storage for configured cache capacity");
+    expect_true(cache.used_tokens(0) == 1, "used_tokens should match token_count");
+    expect_true(cache.utilization(0) == 12, "integer utilization should report floor percentage");
+
+    const KVCache::TensorView slot = cache.key_slot_view(0, 0);
+    expect_true(slot.rows() == 1 && nearly_equal(slot(0, 3), 4.0F),
+                "slot view should expose a single cached row");
+}
 } // namespace
 
 int main()
@@ -310,6 +338,7 @@ int main()
     test_append_validation();
     test_total_token_count_contract();
     test_views();
+    test_preallocation_metrics_keep_logical_shape();
 
     std::cout << "[PASS] KVCache tests passed.\n";
     return 0;
