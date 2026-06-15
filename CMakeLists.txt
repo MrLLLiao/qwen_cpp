@@ -11,6 +11,7 @@ include(CTest)
 
 # 构建行为开关（便于 CI / 本地按需裁剪）
 option(QWEN_CPP_USE_BUNDLED_SIMDJSON "Use bundled simdjson from third_party/simdjson" ON)
+option(QWEN_CPP_BUILD_BENCHMARKS "Build qwen_cpp benchmark executables" ON)
 
 # 工程级配置模块
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -26,6 +27,11 @@ endif()
 
 # 项目源码目标
 add_subdirectory(src)
+
+# 基准测试入口（默认只构建，不纳入 CTest）
+if(QWEN_CPP_BUILD_BENCHMARKS)
+    add_subdirectory(benchmarks)
+endif()
 
 # 测试（受 BUILD_TESTING 控制）
 if(BUILD_TESTING)
