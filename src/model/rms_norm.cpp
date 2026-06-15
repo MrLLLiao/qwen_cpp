@@ -1,50 +1,60 @@
-  
-// File: rms_norm.c
+#include "model/rms_norm.h"
 
-#include <stdio.h>
-#include <ctype.h>
+#include <cmath>
+#include <stdexcept>
 
-#define MAX_N 200000
-#define bool _Bool
-#define true 1
-#define false 0
+namespace mini_llm::model {
 
-typedef long long ll;
+RMSNorm::RMSNorm(RMSNormConfig config)
+    : config_(config)
+{
+    if (config_.epsilon <= 0.0f)
+    {
+        throw std::invalid_argument("RMSNorm epsilon must be greater than 0");
+    }
+}
 
-int read_int() {
-    int x = 0, f = 1;
-    int ch = getchar();
-    while (ch != EOF && !isdigit((unsigned char)ch)) {
-        if (ch == '-') {
-            f = -1;
+Tensor RMSNorm::forward(const Tensor& input, const Tensor& weight) const
+{
+    if (input.empty())
+    {
+        return Tensor{};
+    }
+    if (weight.rows() != 1 || weight.cols() != input.cols())
+    {
+        throw std::invalid_argument("RMSNorm weight must be [1, hidden_size]");
+    }
+
+    Tensor output(input.rows(), input.cols(), 0.0f);
+    for (std::size_t r = 0; r < input.rows(); ++r)
+    {
+        const float* in = input.row_data(r);
+        float sum_sq = 0.0f;
+        for (std::size_t c = 0; c < input.cols(); ++c)
+        {
+            sum_sq += in[c] * in[c];
         }
-        ch = getchar();
+
+        const float inv_rms = 1.0f / std::sqrt(sum_sq / static_cast<float>(input.cols()) + config_.epsilon);
+        float* out = output.row_data(r);
+        for (std::size_t c = 0; c < input.cols(); ++c)
+        {
+            out[c] = in[c] * inv_rms * weight(0, c);
+        }
     }
-    while (ch != EOF && isdigit((unsigned char)ch)) {
-        x = (x << 1) + (x << 3) + (ch ^ 48);
-        ch = getchar();
-    }
-    return x * f;
+    return output;
 }
 
-void writeln_int(int x) {
-    if (x < 0) {
-        putchar('-');
-        x = -x;
-    }
-    char st[60];
-    int top = 0;
-    do {
-        st[top++] = (char)(x % 10 + '0');
-        x /= 10;
-    } while (x > 0);
-    while (top > 0) {
-        putchar(st[--top]);
-    }
-    putchar('\n');
+const RMSNormConfig& RMSNorm::config() const
+{
+    return config_;
 }
 
-int main() {
-
-    return 0;
+Tensor rms_norm(const Tensor& input,
+                  const Tensor& weight,
+                  float epsilon)
+{
+    return RMSNorm(RMSNormConfig{epsilon}).forward(input, weight);
 }
+
+} // namespace mini_llm::model

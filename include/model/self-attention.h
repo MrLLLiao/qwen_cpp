@@ -13,7 +13,11 @@ namespace mini_llm::model {
 struct SelfAttentionConfig {
     std::size_t hidden_size{0};
     std::size_t num_heads{0};
+    std::size_t num_key_value_heads{0};
     bool causal{true};
+    std::size_t query_position_offset{0};
+    float rope_theta{1000000.0f};
+    float rope_scale{1.0f};
 };
 
 /**
@@ -34,8 +38,8 @@ public:
      * @param hidden_states 输入张量（约定形状: [seq_len, hidden_size]）。
      * @param additive_mask 可选加性 mask（约定形状: [seq_len, seq_len]）。
      */
-    [[nodiscard]] Tensor2D forward(const Tensor2D& hidden_states,
-                                   const Tensor2D* additive_mask = nullptr) const;
+    [[nodiscard]] Tensor forward(const Tensor& hidden_states,
+                                   const Tensor* additive_mask = nullptr) const;
 
     [[nodiscard]] const SelfAttentionConfig& config() const;
 
@@ -44,28 +48,29 @@ public:
      *
      * 权重形状要求均为 [hidden_size, hidden_size]。
      */
-    void set_projection_weights(const Tensor2D& wq,
-                                const Tensor2D& wk,
-                                const Tensor2D& wv,
-                                const Tensor2D& wo);
+    void set_projection_weights(const Tensor& wq,
+                                const Tensor& wk,
+                                const Tensor& wv,
+                                const Tensor& wo);
 
 private:
     [[nodiscard]] static bool is_valid_config(const SelfAttentionConfig& config);
-    [[nodiscard]] bool is_valid_projection_weight_shape(const Tensor2D& weight) const;
+    [[nodiscard]] bool is_valid_projection_weight_shape(const Tensor& weight) const;
+    [[nodiscard]] bool is_valid_kv_projection_weight_shape(const Tensor& weight) const;
 
-    [[nodiscard]] Tensor2D project_query(const Tensor2D& hidden_states) const;
-    [[nodiscard]] Tensor2D project_key(const Tensor2D& hidden_states) const;
-    [[nodiscard]] Tensor2D project_value(const Tensor2D& hidden_states) const;
-    [[nodiscard]] Tensor2D project_output(const Tensor2D& context) const;
+    [[nodiscard]] Tensor project_query(const Tensor& hidden_states) const;
+    [[nodiscard]] Tensor project_key(const Tensor& hidden_states) const;
+    [[nodiscard]] Tensor project_value(const Tensor& hidden_states) const;
+    [[nodiscard]] Tensor project_output(const Tensor& context) const;
 
 private:
     SelfAttentionConfig config_{};
     AttentionConfig attention_config_{};
 
-    Tensor2D wq_{};
-    Tensor2D wk_{};
-    Tensor2D wv_{};
-    Tensor2D wo_{};
+    Tensor wq_{};
+    Tensor wk_{};
+    Tensor wv_{};
+    Tensor wo_{};
 };
 
 } // namespace mini_llm::model

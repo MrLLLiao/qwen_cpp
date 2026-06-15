@@ -2,18 +2,39 @@
 
 #include <cstddef>
 
+#include "model/layer.h"
+#include "model/mlp.h"
+#include "model/model_config.h"
+#include "model/model_weights.h"
+#include "model/rms_norm.h"
+#include "model/self-attention.h"
+#include "tensor.h"
+
 namespace mini_llm::model {
 
-class TransformerBlock {
+class TransformerBlock final : public Layer {
 public:
-    // TODO: 补全 block 初始化参数与依赖注入（attention/mlp/norm）
-    explicit TransformerBlock(std::size_t layer_id);
+    explicit TransformerBlock(std::size_t layer_id, ModelConfig config);
 
-    // TODO: 定义 block 前向接口（prefill/decode 两种路径）
-    void forward();
+    void set_weights(const ModelWeights::LayerWeights& weights);
+
+    [[nodiscard]] Tensor forward(const Tensor& hidden_states,
+                                   const Tensor* additive_mask = nullptr) const override;
+
+    [[nodiscard]] std::size_t layer_id() const override;
+    [[nodiscard]] const ModelConfig& config() const override;
 
 private:
-    std::size_t layer_id_;
+    [[nodiscard]] static SelfAttentionConfig make_attention_config(const ModelConfig& config);
+
+private:
+    std::size_t layer_id_{0};
+    ModelConfig config_{};
+    RMSNorm input_norm_{};
+    RMSNorm post_attn_norm_{};
+    SelfAttention attention_;
+    MLP mlp_;
+    ModelWeights::LayerWeights weights_{};
 };
 
 } // namespace mini_llm::model

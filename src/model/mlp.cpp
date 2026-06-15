@@ -1,50 +1,74 @@
-  
-// File: mlp.c
+#include "model/mlp.h"
 
-#include <stdio.h>
-#include <ctype.h>
+#include <cmath>
+#include <stdexcept>
 
-#define MAX_N 200000
-#define bool _Bool
-#define true 1
-#define false 0
+#include "ops/matmul.h"
 
-typedef long long ll;
+namespace
+{
+[[nodiscard]] float silu(float x)
+{
+    return x / (1.0f + std::exp(-x));
+}
+}
 
-int read_int() {
-    int x = 0, f = 1;
-    int ch = getchar();
-    while (ch != EOF && !isdigit((unsigned char)ch)) {
-        if (ch == '-') {
-            f = -1;
+namespace mini_llm::model {
+
+MLP::MLP(MLPConfig config)
+    : config_(config)
+{
+    if (config_.hidden_size == 0 || config_.intermediate_size == 0)
+    {
+        throw std::invalid_argument("MLP config invalid");
+    }
+}
+
+void MLP::set_weights(const Tensor& gate, const Tensor& up, const Tensor& down)
+{
+    gate_ = gate;
+    up_ = up;
+    down_ = down;
+}
+
+Tensor MLP::forward(const Tensor& input) const
+{
+    if (!valid_weights())
+    {
+        throw std::logic_error("MLP weights are not ready");
+    }
+    if (input.cols() != config_.hidden_size)
+    {
+        throw std::invalid_argument("MLP input hidden size mismatch");
+    }
+
+    const Tensor gate_proj = matmul(input, gate_);
+    const Tensor up_proj = matmul(input, up_);
+    Tensor activated(input.rows(), config_.intermediate_size, 0.0f);
+    for (std::size_t r = 0; r < input.rows(); ++r)
+    {
+        float* out = activated.row_data(r);
+        const float* g = gate_proj.row_data(r);
+        const float* u = up_proj.row_data(r);
+        for (std::size_t c = 0; c < config_.intermediate_size; ++c)
+        {
+            out[c] = silu(g[c]) * u[c];
         }
-        ch = getchar();
     }
-    while (ch != EOF && isdigit((unsigned char)ch)) {
-        x = (x << 1) + (x << 3) + (ch ^ 48);
-        ch = getchar();
-    }
-    return x * f;
+
+    return matmul(activated, down_);
 }
 
-void writeln_int(int x) {
-    if (x < 0) {
-        putchar('-');
-        x = -x;
-    }
-    char st[60];
-    int top = 0;
-    do {
-        st[top++] = (char)(x % 10 + '0');
-        x /= 10;
-    } while (x > 0);
-    while (top > 0) {
-        putchar(st[--top]);
-    }
-    putchar('\n');
+const MLPConfig& MLP::config() const
+{
+    return config_;
 }
 
-int main() {
-
-    return 0;
+bool MLP::valid_weights() const
+{
+    return gate_.rows() == config_.hidden_size && gate_.cols() == config_.intermediate_size
+        && up_.rows() == config_.hidden_size && up_.cols() == config_.intermediate_size
+        && down_.rows() == config_.intermediate_size && down_.cols() == config_.hidden_size;
 }
+
+} // namespace mini_llm::model
