@@ -1,6 +1,6 @@
-# 架构职责文档
+# Architecture Contract
 
-本文档用于明确学习主线的分层边界，避免“算子、状态、流程、语义”耦合。
+本文档定义 qwen_cpp 当前学习主线的分层边界，避免“算子、状态、流程、语义”耦合。该文档描述的是已经纳入核心构建和测试的稳定部分，以及仍处于脚手架状态的未来模块。
 
 ## 0. 当前定位
 
@@ -8,6 +8,7 @@
 - 当前学习主线为：`tensor -> ops -> cache -> engine -> model`
 - `tokenizer / runtime / backend / cli / service` 当前属于实验支线
 - 实验支线代码可以保留，但不作为当前主架构稳定性的判断标准
+- 当前 CMake 稳定目标为 `ops_core`、`cache_core`、`engine_core`、`model_core`、测试目标和可选 benchmark
 
 ## 1. 分层总览
 
@@ -22,6 +23,7 @@ ops    (纯计算)
 ```
 
 关键原则：
+
 - **ops 不持久化状态**
 - **cache 不做流程决策**
 - **engine 不实现底层数学细节**
@@ -38,17 +40,20 @@ ops    (纯计算)
 ### 2.1 ops：纯计算，无状态优先
 
 **职责**
+
 - 提供确定性计算：`matmul`、`softmax`、`attention` 等。
 - 接受输入张量与配置，返回输出张量。
 - 进行必要的输入合法性校验（shape、参数范围）。
 - `attention` 支持 GQA、RoPE、增量 causal mask，并采用逐行 streaming 方式避免保存完整 attention score/prob 矩阵。
 
 **非职责**
+
 - 不保存跨 step 的缓存。
 - 不感知 session/request 生命周期。
 - 不决定 prefill/decode 顺序。
 
 **代码位置**
+
 - `include/ops/*`
 - `src/ops/*`
 
@@ -57,17 +62,20 @@ ops    (纯计算)
 ### 2.2 cache：状态与生命周期
 
 **职责**
+
 - 管理 KV 状态：初始化、追加、查询、释放。
 - 管理内存资源池与容量约束（max_tokens / max_buffers）。
 - 提供按层、按区间的只读视图（例如 `TensorView`）。
 - 维护预分配容量与利用率指标，避免 decode 过程中频繁重建历史 KV 张量。
 
 **非职责**
+
 - 不做 attention 数学计算。
 - 不决定何时 append（由 engine 决策）。
 - 不定义模型层语义。
 
 **代码位置**
+
 - `include/cache/*`
 - `src/cache/*`
 
@@ -76,6 +84,7 @@ ops    (纯计算)
 ### 2.3 engine：流程编排
 
 **职责**
+
 - 编排推理阶段：
   - prefill：批量写入历史 token 的 KV。
   - decode：逐 token 增量推进。
@@ -83,11 +92,13 @@ ops    (纯计算)
 - 管理一次请求/会话级别的执行上下文。
 
 **非职责**
+
 - 不实现底层算子细节（交给 ops）。
 - 不拥有模型结构定义（交给 model）。
 - 不替代 cache 做内存池细节。
 
 **代码位置**
+
 - `src/engine/prefill.cpp`
 - `src/engine/decode.cpp`
 
@@ -98,16 +109,19 @@ ops    (纯计算)
 ### 2.4 model：层级抽象
 
 **职责**
+
 - 描述模型组件及层级关系（Layer / Block / AttentionLayer）。
 - 定义参数访问与前向接口语义。
 - 屏蔽底层实现差异，为 engine 提供稳定 API。
 - 当前已实现 `ModelConfig`、`ModelWeights`、`RMSNorm`、GQA `SelfAttention`、SwiGLU `MLP`、`TransformerBlock` 与 `QwenModel` 最小前向骨架。
 
 **非职责**
+
 - 不直接实现通用算子（交给 ops）。
 - 不接管全局缓存生命周期（交给 cache + engine）。
 
 **代码位置**
+
 - `include/model/*`
 - `src/model/*`
 
@@ -118,6 +132,7 @@ ops    (纯计算)
 ## 3. 依赖方向（必须遵守）
 
 允许依赖：
+
 - `engine -> model`
 - `engine -> cache`
 - `engine -> ops`（必要时）
@@ -125,6 +140,7 @@ ops    (纯计算)
 - `model -> cache`（仅当教学实现需要读取缓存结构时，避免反向触达 engine）
 
 不允许依赖：
+
 - `ops -> cache/engine/model`
 - `cache -> engine/model/ops业务逻辑`
 - `model -> engine`
@@ -168,11 +184,39 @@ ops    (纯计算)
   - `num_attention_heads` 必须能被 `num_key_value_heads` 整除。
   - `rms_norm_eps`、`rope_theta`、`rope_scale` 必须为正数。
 
----
+## 5. 构建目标与成熟度
 
-## 5. 演进建议
+| CMake target | 模块 | 成熟度 |
+| --- | --- | --- |
+| `ops_core` | `Tensor`、`matmul`、`softmax`、`attention` | 已纳入构建与测试 |
+| `cache_core` | `KVCache`、`CacheAllocator`、`CacheManager` | 已纳入构建与测试 |
+| `engine_core` | `PrefillEngine`、`DecodeEngine` | 已纳入构建与集成测试 |
+| `model_core` | Qwen 风格最小模型组件 | 已纳入构建与测试，仍为学习阶段 |
+| `qwen_decode_bench` | decode 路径 benchmark | 可选构建，不纳入 CTest |
+
+以下模块已有文件或接口，但不能被视为可用 runtime 能力：
+
+- `tokenizer`
+- `runtime`
+- `backend`
+- `cli`
+- `service`
+- `python/data_pipeline`
+- `python/training`
+- `python/tools`
+
+这些模块后续接入时必须先明确 CMake/依赖/测试/文档状态。
+
+## 6. 演进建议
 
 1. 补一个教学型集成用例，把 `model` 与 `engine/cache` 的边界通过测试固定下来。
 2. 接入真实权重加载格式（GGUF/manifest），避免 `ModelWeights` 长期停留在手工填充。
 3. 为 tokenizer/runtime/backend 实验支线单独补一页说明，避免和学习主线混淆。
 4. 若后续引入并行/异步、SIMD 或 arena allocator，仍保持本职责边界不变。
+
+## 7. 文档维护规则
+
+- 新增或改变公开接口时，同步更新对应 README 或本架构文档。
+- 新增可运行能力时，在根 README 的项目状态表中更新成熟度。
+- 新增规划但未实现的能力时，必须标注为 scaffold、planned 或 TODO，避免文档提前承诺。
+- 测试覆盖变化应同步更新 `tests/unit`、`tests/integration` 或 `tests/e2e` 说明。
